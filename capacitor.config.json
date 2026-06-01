@@ -1,0 +1,28 @@
+{
+  "appId": "com.roteiroai.app",
+  "appName": "RoteiroAI",
+  "webDir": "public",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3500,
+      "backgroundColor": "#000000",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "Dark",
+      "backgroundColor": "#000000"
+    }
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#000000",
+    "minSdkVersion": 23
+  },
+  "ios": {
+    "backgroundColor": "#000000",
+    "contentInset": "automatic"
+  }
+}

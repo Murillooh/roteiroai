@@ -1,0 +1,14 @@
+# Ambiente
+.env
+
+# Dependências
+node_modules/
+
+# Capacitor (plataformas geradas automaticamente)
+android/
+ios/
+
+# Build
+dist/
+.DS_Store
+*.log
