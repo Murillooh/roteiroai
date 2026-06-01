@@ -3512,9 +3512,6 @@ function initSpeechRecognition() {
 
   recognition.onerror = (event) => {
     console.error('Erro no reconhecimento de voz:', event.error);
-    if (event.error === 'not-allowed') {
-      alert('Permissão de microfone negada. Certifique-se de autorizar o uso do microfone nas configurações do seu celular ou navegador.');
-    }
   };
 }
 
@@ -3531,10 +3528,31 @@ function toggleSpeechRecognition() {
   if (isListening) {
     recognition.stop();
   } else {
-    try {
-      recognition.start();
-    } catch (e) {
-      console.error('Falha ao iniciar gravação:', e);
+    // Solicita a permissão de áudio usando getUserMedia para forçar a exibição do diálogo nativo do Android
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          // Permissão concedida! Desliga a gravação do stream temporário
+          stream.getTracks().forEach(track => track.stop());
+          
+          // Inicia o reconhecimento de voz
+          try {
+            recognition.start();
+          } catch (e) {
+            console.error('Falha ao iniciar gravação:', e);
+          }
+        })
+        .catch(err => {
+          console.error('Erro de permissão do microfone:', err);
+          alert('Permissão de microfone negada. Certifique-se de autorizar o uso do microfone nas configurações do aplicativo no seu celular.');
+        });
+    } else {
+      // Fallback caso getUserMedia não esteja disponível
+      try {
+        recognition.start();
+      } catch (e) {
+        console.error('Falha ao iniciar gravação:', e);
+      }
     }
   }
 }
