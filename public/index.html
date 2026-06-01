@@ -11,6 +11,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <!-- Supabase SDK v2 (seguro para uso no frontend com RLS habilitado) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- Google Identity Services (GSI) SDK para One Tap -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <style>
   :root {
     --bg:       #080808;
@@ -2095,7 +2098,56 @@ async function logout() {
   tasks = { seg: [], ter: [], qua: [], qui: [], sex: [] };
   document.getElementById('aiMessages').innerHTML = '';
   document.body.classList.add('logged-out');
+  // Re-exibe o prompt do One Tap quando o usuário sai
+  setTimeout(initGoogleOneTap, 1000);
 }
+
+// ── Google One Tap Integration ───────────────────────────────────────────────
+function initGoogleOneTap() {
+  if (typeof google !== 'undefined') {
+    google.accounts.id.initialize({
+      client_id: '164170592494-gpgvajupb8om0f52kqc513tn5l22jk4m.apps.googleusercontent.com',
+      callback: handleCredentialResponse,
+      auto_select: false,
+      cancel_on_tap_outside: true
+    });
+
+    google.accounts.id.prompt((notification) => {
+      console.log('Google One Tap notification:', notification);
+    });
+  }
+}
+
+async function handleCredentialResponse(response) {
+  const jwt = response.credential;
+  const preloader = document.getElementById('preloader');
+  const ringFill  = document.getElementById('preloaderRingFill');
+  const barFill   = document.getElementById('preloaderBarFill');
+  const pctEl     = document.getElementById('preloaderPct');
+  const statusEl  = document.getElementById('preloaderStatus');
+
+  if (preloader) {
+    preloader.classList.remove('fade-out');
+    ringFill.style.strokeDashoffset = 0;
+    barFill.style.width = '100%';
+    pctEl.textContent = '100%';
+    statusEl.textContent = 'Autenticando com o Google...';
+  }
+
+  const { data, error } = await _supabase.auth.signInWithIdToken({
+    provider: 'google',
+    token: jwt
+  });
+
+  if (error) {
+    console.error('Erro ao fazer login com ID Token no Supabase:', error);
+    alert('Erro no login do Google: ' + error.message);
+    if (preloader) {
+      preloader.classList.add('fade-out');
+    }
+  }
+}
+
 
 // ── Supabase: Carregar tarefas do banco de dados ──────────────────────────────
 async function loadTasksFromSupabase(userId) {
@@ -3299,6 +3351,9 @@ window.addEventListener('DOMContentLoaded', async () => {
           // Não logado: mostra tela de login
           // OU já inicializado pelo onAuthStateChange (OAuth redirect)
           preloader.classList.add('fade-out');
+          if (!user) {
+            initGoogleOneTap();
+          }
         }
       }, 250);
     }
