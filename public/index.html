@@ -9,8 +9,8 @@
 <meta name="description" content="Gerencie seu roteiro semanal de visitas e demandas com auxílio de inteligência artificial.">
 <link href="https://fonts.googleapis.com/css2?family=Goldman:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-<!-- SDK Oficial do Google Identity Services -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
+<!-- Supabase SDK v2 (seguro para uso no frontend com RLS habilitado) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --bg:       #080808;
@@ -1798,64 +1798,26 @@
       <p>Acesse sua conta para gerenciar seu roteiro semanal</p>
     </div>
     
-    <form class="login-form" id="loginForm" onsubmit="handleLogin(event)">
-      <div class="login-group">
-        <label class="login-label">E-MAIL</label>
-        <div class="login-input-wrapper">
-          <span class="login-input-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-          </span>
-          <input type="email" id="loginEmail" class="login-input" placeholder="seu@email.com" required autocomplete="email">
-        </div>
-      </div>
-      
-      <div class="login-group">
-        <label class="login-label">SENHA</label>
-        <div class="login-input-wrapper">
-          <span class="login-input-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-          </span>
-          <input type="password" id="loginPassword" class="login-input" placeholder="••••••••" required autocomplete="current-password">
-        </div>
-      </div>
-      
-      <div class="login-options">
-        <label class="login-remember">
-          <input type="checkbox" id="rememberMe">
-          <span>Lembrar de mim</span>
-        </label>
-        <a href="#" class="login-forgot" onclick="alert('Funcionalidade simulada: o login padrão é admin@roteiroai.com / admin')">Esqueceu a senha?</a>
-      </div>
-      
-      <div id="loginError" class="login-error">Credenciais incorretas. Tente novamente.</div>
-      
-      <button type="submit" class="login-btn">
-        <span>ENTRAR NO SISTEMA</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+    <div style="width:100%; display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:8px;">
+      <button
+        id="googleOAuthBtn"
+        type="button"
+        class="login-google-btn"
+        onclick="loginWithGoogle()"
+        style="display:flex; width:100%; justify-content:center; align-items:center; gap:12px; padding:14px 20px; font-size:14px; font-weight:600; cursor:pointer;"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" style="flex-shrink:0;">
+          <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.48 14.98 1 12 1 7.35 1 3.37 3.65 1.48 7.5l3.87 3C6.27 7.57 8.92 5.04 12 5.04z"/>
+          <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.34H12v4.44h6.43c-.28 1.44-1.1 2.66-2.33 3.48l3.61 2.8c2.12-1.95 3.33-4.83 3.33-8.38z"/>
+          <path fill="#FBBC05" d="M5.35 10.5c-.24-.72-.37-1.49-.37-2.28s.13-1.56.37-2.28L1.48 3.5C.54 5.4.01 7.53.01 9.8s.53 4.4 1.47 6.3l3.87-3z"/>
+          <path fill="#34A853" d="M12 23c3.24 0 5.95-1.08 7.93-2.91l-3.61-2.8c-1.01.68-2.29 1.09-3.79 1.09-3.08 0-5.73-2.53-6.66-5.46l-3.87 3C3.37 19.35 7.35 23 12 23z"/>
+        </svg>
+        Entrar com Google
       </button>
-    </form>
-    
-    <div class="login-divider">
-      <span>ou</span>
+      <p style="font-size:11px; color:var(--sub); text-align:center; line-height:1.6; max-width:280px;">
+        Seus dados ficam sincronizados em todos os dispositivos e são exclusivos da sua conta Google.
+      </p>
     </div>
-    
-    <!-- Botão real de Sign-In com Google -->
-    <div id="googleButtonContainer" style="margin-top: 10px; min-height: 44px; display: none; justify-content: center; align-items: center; width: 100%;"></div>
-    
-    <!-- Link para acionar o simulador em caso de bloqueio do Google (WebView/WhatsApp) -->
-    <div id="googleBypassLink" style="margin-top: 8px; font-size: 11px; text-align: center; display: none; width: 100%;">
-      <a href="#" onclick="event.preventDefault(); handleGoogleLogin();" style="color: var(--sub); text-decoration: none; transition: color 0.15s; font-weight: 500;" onmouseover="this.style.color='var(--ai)'" onmouseout="this.style.color='var(--sub)'">🔑 Problemas para logar? Use o simulador</a>
-    </div>
-    
-    <!-- Botão do simulador como fallback (se o SDK do Google falhar) -->
-    <button type="button" id="googleFallbackBtn" class="login-google-btn" onclick="handleGoogleLogin()" title="Entrar com o Google (Simulador)" style="display: none;">
-      <svg class="google-icon" width="18" height="18" viewBox="0 0 24 24">
-        <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.48 14.98 1 12 1 7.35 1 3.37 3.65 1.48 7.5l3.87 3C6.27 7.57 8.92 5.04 12 5.04z"/>
-        <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.34H12v4.44h6.43c-.28 1.44-1.1 2.66-2.33 3.48l3.61 2.8c2.12-1.95 3.33-4.83 3.33-8.38z"/>
-        <path fill="#FBBC05" d="M5.35 10.5c-.24-.72-.37-1.49-.37-2.28s.13-1.56.37-2.28L1.48 3.5C.54 5.4.01 7.53.01 9.8s.53 4.4 1.47 6.3l3.87-3z"/>
-        <path fill="#34A853" d="M12 23c3.24 0 5.95-1.08 7.93-2.91l-3.61-2.8c-1.01.68-2.29 1.09-3.79 1.09-3.08 0-5.73-2.53-6.66-5.46l-3.87 3C3.37 19.35 7.35 23 12 23z"/>
-      </svg>
-    </button>
   </div>
 </div>
 
@@ -2047,11 +2009,13 @@
 </div>
 
 <script>
-// ── Config ───────────────────────────────────────────────────────────────────
-// URL de produção do servidor (após deploy no Railway/Vercel/Render)
-const PRODUCTION_API_URL = 'https://roteiroai.vercel.app'; // ← Coloque a URL gerada pelo Vercel
+// ── Supabase Config ──────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://aozyeuhfqqnsrfkbrsre.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Pad-SAGpdApE85PEIU0ucw_BIfTK_7X';
+const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Detecta se está rodando como app mobile (Capacitor) ou no navegador
+// ── Config ───────────────────────────────────────────────────────────────────
+const PRODUCTION_API_URL = 'https://roteiroai.vercel.app';
 const isCapacitorApp = !!(window.Capacitor && window.Capacitor.isNative);
 const BASE_URL = isCapacitorApp ? PRODUCTION_API_URL : '';
 const API_ENDPOINT = `${BASE_URL}/api/chat`;
@@ -2065,78 +2029,49 @@ const DAYS = [
   { id:'sex', name:'Sexta-feira',   dest:'Barueri',        tipo:'VISITA',           color:'#74c0fc', special:false },
 ];
 
-const DEFAULT_TASKS = {
-  seg: [
-    { id: 1, text: "Alinhamento matinal com gerente da Zona Sul", time: "08:30", done: true },
-    { id: 2, text: "Visitar filial de Santo Amaro e auditar estoque físico", time: "10:00", done: true },
-    { id: 3, text: "Almoço com coordenador de operações locais", time: "12:30", done: true },
-    { id: 4, text: "Vistoria técnica na nova instalação em Interlagos", time: "14:30", done: false },
-    { id: 5, text: "Preencher e enviar relatório de visitas da Zona Sul", time: "17:00", done: false }
-  ],
-  ter: [
-    { id: 6, text: "Check-in presencial na base Limão", time: "09:00", done: true },
-    { id: 7, text: "Reunião de alinhamento de rotas com logística", time: "10:30", done: true },
-    { id: 8, text: "Auditoria preventiva nos sistemas de segurança predial", time: "13:30", done: false },
-    { id: 9, text: "Entrevistar novo candidato para vaga de supervisor regional", time: "15:00", done: false },
-    { id: 10, text: "Consolidar pendências administrativas da base Limão", time: "17:30", done: false }
-  ],
-  qua: [
-    { id: 11, text: "Monitoramento semanal das metas globais do time", time: "08:00", done: true },
-    { id: 12, text: "Videoconferência mensal de alinhamento com todas as bases", time: "10:00", done: true },
-    { id: 13, text: "Revisão e atualização da planilha financeira", time: "11:30", done: true },
-    { id: 14, text: "Aprovar orçamentos pendentes de insumos corporativos", time: "14:00", done: false },
-    { id: 15, text: "Verificar e responder chamados urgentes do Service Desk", time: "16:00", done: false }
-  ],
-  qui: [
-    { id: 16, text: "Reunião de abertura e auditoria na base Canindé", time: "09:15", done: true },
-    { id: 17, text: "Acompanhar workshop presencial de segurança operacional", time: "11:00", done: false },
-    { id: 18, text: "Negociação de reajustes de contrato com fornecedores", time: "14:00", done: false },
-    { id: 19, text: "Visita externa de relacionamento com parceiro estratégico", time: "15:30", done: false },
-    { id: 20, text: "Definir cronograma das manutenções prediais pendentes", time: "17:00", done: false }
-  ],
-  sex: [
-    { id: 21, text: "Inspeção geral e testes do plano de evacuação em Barueri", time: "08:30", done: true },
-    { id: 22, text: "Reunião final de status semanal com diretoria de operações", time: "10:30", done: true },
-    { id: 23, text: "Estruturação dos planos de ação emergenciais", time: "13:30", done: false },
-    { id: 24, text: "Redigir e arquivar relatórios semanais consolidados", time: "15:00", done: false },
-    { id: 25, text: "Café com a equipe e encerramento da jornada da semana", time: "17:00", done: false }
-  ]
-};
-
-let tasks = JSON.parse(localStorage.getItem('roteiroTasks') || 'null');
-if (!tasks || Object.keys(tasks).length === 0) {
-  tasks = DEFAULT_TASKS;
-  localStorage.setItem('roteiroTasks', JSON.stringify(tasks));
-}
+// Cada usuário começa com lista vazia — sem tarefas fictícias
+let tasks = { seg: [], ter: [], qua: [], qui: [], sex: [] };
 let activeDay = 'seg';
 let isAIReady = false;
+let currentUser = null;
+let _initialized = false;
 
-// ── Auth Logic ───────────────────────────────────────────────────────────────
-function checkSession() {
-  const session = localStorage.getItem('roteiro_session');
+// ── Auth Logic (Supabase) ─────────────────────────────────────────────────────
+async function checkSession() {
+  const { data: { session } } = await _supabase.auth.getSession();
   if (session) {
+    currentUser = session.user;
     document.body.classList.remove('logged-out');
-    return true;
+    return session.user;
   } else {
+    currentUser = null;
     document.body.classList.add('logged-out');
-    return false;
+    return null;
   }
 }
 
-function handleLogin(event) {
-  event.preventDefault();
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPassword').value;
-  const errorEl = document.getElementById('loginError');
-
-  if (email === 'admin@roteiroai.com' && pass === 'admin') {
-    errorEl.style.display = 'none';
-    localStorage.setItem('roteiro_session', JSON.stringify({ email, timestamp: Date.now() }));
-    checkSession();
-    init();
-  } else {
-    errorEl.textContent = 'Credenciais incorretas. Tente novamente.';
-    errorEl.style.display = 'block';
+async function loginWithGoogle() {
+  const btn = document.getElementById('googleOAuthBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '0.65';
+    btn.textContent = 'Redirecionando para o Google...';
+  }
+  const { error } = await _supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin + window.location.pathname,
+      queryParams: { prompt: 'select_account' }
+    }
+  });
+  if (error) {
+    console.error('Erro no login Google:', error);
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.textContent = 'Entrar com Google';
+    }
+    alert('Erro ao iniciar login: ' + error.message);
   }
 }
 
@@ -2153,147 +2088,85 @@ function confirmLogout() {
   logout();
 }
 
-function logout() {
-  localStorage.removeItem('roteiro_session');
+async function logout() {
+  await _supabase.auth.signOut();
+  _initialized = false;
+  currentUser = null;
+  tasks = { seg: [], ter: [], qua: [], qui: [], sex: [] };
   document.getElementById('aiMessages').innerHTML = '';
-  checkSession();
+  document.body.classList.add('logged-out');
 }
 
-const GOOGLE_CLIENT_ID = '164170592494-up3i3ivqlp1v6rfsberck78s2v3ilivc.apps.googleusercontent.com';
+// ── Supabase: Carregar tarefas do banco de dados ──────────────────────────────
+async function loadTasksFromSupabase(userId) {
+  const { data, error } = await _supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
 
-// Inicializa a API do Google Sign-In real
-function initGoogleSignIn() {
-  if (typeof google !== 'undefined') {
-    google.accounts.id.initialize({
-      client_id: GOOGLE_CLIENT_ID,
-      callback: handleCredentialResponse,
-      auto_select: false,
-      cancel_on_tap_outside: true
-    });
+  if (error) {
+    console.error('Erro ao carregar tarefas:', error);
+    return;
+  }
 
-    // Renderiza o botão oficial com tema outline e cantos arredondados (pill)
-    google.accounts.id.renderButton(
-      document.getElementById('googleButtonContainer'),
-      {
-        theme: 'outline',
-        size: 'large',
-        type: 'standard',
-        shape: 'pill',
-        text: 'signin_with',
-        logo_alignment: 'left',
-        width: 360
+  tasks = { seg: [], ter: [], qua: [], qui: [], sex: [] };
+  if (data) {
+    data.forEach(t => {
+      if (tasks[t.day_id] !== undefined) {
+        tasks[t.day_id].push({
+          id: t.id,
+          text: t.text,
+          time: t.time || '',
+          done: t.done || false,
+          details: t.details || ''
+        });
       }
-    );
-    
-    document.getElementById('googleButtonContainer').style.display = 'flex';
-    document.getElementById('googleBypassLink').style.display = 'block';
-    document.getElementById('googleFallbackBtn').style.display = 'none';
-    
-    // Ativa One Tap (login sutil automático se o usuário já estiver logado no Google)
-    google.accounts.id.prompt();
-  } else {
-    // Se falhar o carregamento (offline, etc), mostra o simulador como fallback
-    document.getElementById('googleButtonContainer').style.display = 'none';
-    document.getElementById('googleBypassLink').style.display = 'none';
-    document.getElementById('googleFallbackBtn').style.display = 'flex';
+    });
   }
 }
 
-// Executado quando a biblioteca carrega
-window.addEventListener('load', () => {
-  setTimeout(initGoogleSignIn, 500);
-});
+// ── Auth State Change (trata retorno do OAuth do Google) ──────────────────────
+_supabase.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session && !_initialized) {
+    _initialized = true;
+    currentUser = session.user;
+    document.body.classList.remove('logged-out');
 
-// Recebe o token do Google e autentica o usuário
-function handleCredentialResponse(response) {
-  const jwt = response.credential;
-  const payload = decodeJwt(jwt);
-  
-  if (payload) {
-    // Re-exibe preloader para transição de login
     const preloader = document.getElementById('preloader');
     const ringFill  = document.getElementById('preloaderRingFill');
     const barFill   = document.getElementById('preloaderBarFill');
     const pctEl     = document.getElementById('preloaderPct');
     const statusEl  = document.getElementById('preloaderStatus');
-    
+
     preloader.classList.remove('fade-out');
+    const CIRC = 2 * Math.PI * 44;
+    ringFill.style.strokeDasharray  = CIRC;
     ringFill.style.strokeDashoffset = 0;
     barFill.style.width = '100%';
     pctEl.textContent = '100%';
-    statusEl.textContent = 'Conectando com o Google...';
-    
+    statusEl.textContent = 'Sincronizando suas tarefas...';
+
+    await loadTasksFromSupabase(session.user.id);
+
+    statusEl.textContent = 'Tudo pronto!';
     setTimeout(() => {
-      const realUser = {
-        email: payload.email,
-        name: payload.name,
-        photo: payload.picture, // Foto real do perfil Google em tempo real
-        timestamp: Date.now()
-      };
-      
-      localStorage.setItem('roteiro_session', JSON.stringify(realUser));
-      checkSession();
-      init();
-      
       preloader.classList.add('fade-out');
-    }, 1000);
+      init();
+    }, 800);
+
+  } else if (event === 'SIGNED_OUT') {
+    _initialized = false;
+    currentUser = null;
+    tasks = { seg: [], ter: [], qua: [], qui: [], sex: [] };
+    document.body.classList.add('logged-out');
   }
-}
+});
 
-// Decodificador de JWT em vanilla JS
-function decodeJwt(token) {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-    }).join(''));
-
-    return JSON.parse(jsonPayload);
-  } catch (error) {
-    console.error("Erro ao decodificar token do Google:", error);
-    return null;
-  }
-}
-
-function handleGoogleLogin() {
-  document.getElementById('googleAccountModal').style.display = 'flex';
-}
-
-function closeGoogleAccountModal() {
-  document.getElementById('googleAccountModal').style.display = 'none';
-}
-
-function selectGoogleAccount(email, name, photo) {
-  closeGoogleAccountModal();
-  
-  // Re-exibe preloader rapidamente para dar sensação de autenticação com o Google
-  const preloader = document.getElementById('preloader');
-  const ringFill  = document.getElementById('preloaderRingFill');
-  const barFill   = document.getElementById('preloaderBarFill');
-  const pctEl     = document.getElementById('preloaderPct');
-  const statusEl  = document.getElementById('preloaderStatus');
-  
-  preloader.classList.remove('fade-out');
-  ringFill.style.strokeDashoffset = 0;
-  barFill.style.width = '100%';
-  pctEl.textContent = '100%';
-  statusEl.textContent = 'Autenticando via Google...';
-  
-  setTimeout(() => {
-    const mockUser = {
-      email,
-      name,
-      photo,
-      timestamp: Date.now()
-    };
-    localStorage.setItem('roteiro_session', JSON.stringify(mockUser));
-    checkSession();
-    init();
-    
-    preloader.classList.add('fade-out');
-  }, 1000);
-}
+// Listener de carregamento (Supabase OAuth não precisa do GSI)
+window.addEventListener('load', () => {
+  // Autenticação gerenciada pelo Supabase OAuth
+});
 
 // ── Modal (API Key) ───────────────────────────────────────────────────────────
 function showModal() {
@@ -2560,49 +2433,88 @@ function renderDashboard() {
   `;
 }
 
-function addTask() {
+async function addTask() {
+  if (!currentUser) return;
   const input = document.getElementById('taskInput');
   const timeI = document.getElementById('taskTime');
   const text  = input.value.trim();
   if (!text) { input.focus(); return; }
+
+  const { data, error } = await _supabase
+    .from('tasks')
+    .insert({
+      user_id: currentUser.id,
+      day_id: activeDay,
+      text,
+      time: timeI.value || '',
+      done: false,
+      details: ''
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao adicionar tarefa:', error);
+    alert('Erro ao salvar tarefa: ' + error.message);
+    return;
+  }
+
   if (!tasks[activeDay]) tasks[activeDay] = [];
-  tasks[activeDay].push({ id: Date.now(), text, time: timeI.value || '', done: false });
-  saveTasks();
+  tasks[activeDay].push({
+    id: data.id,
+    text: data.text,
+    time: data.time || '',
+    done: data.done,
+    details: data.details || ''
+  });
+
   input.value = '';
   timeI.value = '';
   renderTasks();
   renderSidebar();
 }
 
-function toggleTask(id) {
-  let found = false;
+async function toggleTask(id) {
+  let targetTask = null;
   DAYS.forEach(d => {
-    const list = tasks[d.id] || [];
-    const t = list.find(x => x.id === id);
-    if (t) {
-      t.done = !t.done;
-      found = true;
-    }
+    const t = (tasks[d.id] || []).find(x => x.id === id);
+    if (t) targetTask = t;
   });
-  if (found) {
-    saveTasks();
-    if (activeDay === 'dashboard') {
-      renderDashboard();
-      renderSidebar();
-    } else {
-      renderTasks();
-      renderSidebar();
-    }
+  if (!targetTask) return;
+
+  const newDone = !targetTask.done;
+  const { error } = await _supabase
+    .from('tasks')
+    .update({ done: newDone })
+    .eq('id', id);
+
+  if (error) { console.error('Erro ao atualizar tarefa:', error); return; }
+
+  targetTask.done = newDone;
+
+  if (activeDay === 'dashboard') {
+    renderDashboard();
+    renderSidebar();
+  } else {
+    renderTasks();
+    renderSidebar();
   }
 }
 
-function deleteTask(id) {
+async function deleteTask(id) {
+  const { error } = await _supabase
+    .from('tasks')
+    .delete()
+    .eq('id', id);
+
+  if (error) { console.error('Erro ao deletar tarefa:', error); return; }
+
   DAYS.forEach(d => {
     if (tasks[d.id]) {
       tasks[d.id] = tasks[d.id].filter(x => x.id !== id);
     }
   });
-  saveTasks();
+
   if (activeDay === 'dashboard') {
     renderDashboard();
     renderSidebar();
@@ -2646,17 +2558,47 @@ function renderTasks() {
   });
 }
 
-function saveTasks() {
-  localStorage.setItem('roteiroTasks', JSON.stringify(tasks));
-}
+// saveTasks substituída por operações individuais no Supabase
+function saveTasks() { /* no-op: cada operação já salva diretamente no Supabase */ }
 
-function resetToDefaultTasks() {
-  if (confirm("Deseja substituir as tarefas atuais pelas 25 tarefas de teste?")) {
-    tasks = JSON.parse(JSON.stringify(DEFAULT_TASKS));
-    saveTasks();
-    setActiveDay(activeDay);
-    addAIMessage('assistant', '⚡ As 25 tarefas fictícias foram geradas com sucesso (5 para cada dia da semana)! Sinta-se à vontade para perguntar qualquer coisa sobre elas.');
-  }
+async function resetToDefaultTasks() {
+  if (!currentUser) return;
+  if (!confirm("Deseja gerar 25 tarefas de teste? Elas serão salvas na sua conta no Supabase.")) return;
+
+  const rows = [
+    { day_id:'seg', text:"Alinhamento matinal com gerente da Zona Sul", time:"08:30", done:true },
+    { day_id:'seg', text:"Visitar filial de Santo Amaro e auditar estoque físico", time:"10:00", done:true },
+    { day_id:'seg', text:"Almoço com coordenador de operações locais", time:"12:30", done:true },
+    { day_id:'seg', text:"Vistoria técnica na nova instalação em Interlagos", time:"14:30", done:false },
+    { day_id:'seg', text:"Preencher e enviar relatório de visitas da Zona Sul", time:"17:00", done:false },
+    { day_id:'ter', text:"Check-in presencial na base Limão", time:"09:00", done:true },
+    { day_id:'ter', text:"Reunião de alinhamento de rotas com logística", time:"10:30", done:true },
+    { day_id:'ter', text:"Auditoria preventiva nos sistemas de segurança predial", time:"13:30", done:false },
+    { day_id:'ter', text:"Entrevistar novo candidato para vaga de supervisor regional", time:"15:00", done:false },
+    { day_id:'ter', text:"Consolidar pendências administrativas da base Limão", time:"17:30", done:false },
+    { day_id:'qua', text:"Monitoramento semanal das metas globais do time", time:"08:00", done:true },
+    { day_id:'qua', text:"Videoconferência mensal de alinhamento com todas as bases", time:"10:00", done:true },
+    { day_id:'qua', text:"Revisão e atualização da planilha financeira", time:"11:30", done:true },
+    { day_id:'qua', text:"Aprovar orçamentos pendentes de insumos corporativos", time:"14:00", done:false },
+    { day_id:'qua', text:"Verificar e responder chamados urgentes do Service Desk", time:"16:00", done:false },
+    { day_id:'qui', text:"Reunião de abertura e auditoria na base Canindé", time:"09:15", done:true },
+    { day_id:'qui', text:"Acompanhar workshop presencial de segurança operacional", time:"11:00", done:false },
+    { day_id:'qui', text:"Negociação de reajustes de contrato com fornecedores", time:"14:00", done:false },
+    { day_id:'qui', text:"Visita externa de relacionamento com parceiro estratégico", time:"15:30", done:false },
+    { day_id:'qui', text:"Definir cronograma das manutenções prediais pendentes", time:"17:00", done:false },
+    { day_id:'sex', text:"Inspeção geral e testes do plano de evacuação em Barueri", time:"08:30", done:true },
+    { day_id:'sex', text:"Reunião final de status semanal com diretoria de operações", time:"10:30", done:true },
+    { day_id:'sex', text:"Estruturação dos planos de ação emergenciais", time:"13:30", done:false },
+    { day_id:'sex', text:"Redigir e arquivar relatórios semanais consolidados", time:"15:00", done:false },
+    { day_id:'sex', text:"Café com a equipe e encerramento da jornada da semana", time:"17:00", done:false },
+  ].map(t => ({ ...t, user_id: currentUser.id, details: '' }));
+
+  const { error } = await _supabase.from('tasks').insert(rows);
+  if (error) { alert('Erro: ' + error.message); return; }
+
+  await loadTasksFromSupabase(currentUser.id);
+  setActiveDay(activeDay);
+  addAIMessage('assistant', '⚡ As 25 tarefas fictícias foram geradas com sucesso no Supabase!');
 }
 
 // ── Funções de Detalhes dos Chamados (Modal e IA) ─────────────────────────────
@@ -2699,9 +2641,20 @@ function closeTaskDetailsModal() {
   currentDetailTaskId = null;
 }
 
-function saveTaskDetails() {
+async function saveTaskDetails() {
   if (!currentDetailTaskId) return;
   const notesVal = document.getElementById('detailTaskNotes').value.trim();
+
+  const { error } = await _supabase
+    .from('tasks')
+    .update({ details: notesVal })
+    .eq('id', currentDetailTaskId);
+
+  if (error) {
+    console.error('Erro ao salvar detalhes:', error);
+    alert('Erro ao salvar: ' + error.message);
+    return;
+  }
 
   DAYS.forEach(d => {
     if (tasks[d.id]) {
@@ -2714,10 +2667,9 @@ function saveTaskDetails() {
     }
   });
 
-  saveTasks();
   closeTaskDetailsModal();
   renderTasks();
-  
+
   if (activeDay === 'dashboard') {
     renderDashboard();
   }
@@ -3290,32 +3242,31 @@ document.getElementById('logoutConfirmModal').addEventListener('click', function
   if (e.target === this) closeLogoutConfirmModal();
 });
 
-// Inicialização com Pre-load Premium
-window.addEventListener('DOMContentLoaded', () => {
+// Inicialização com Pre-load Premium (autenticação via Supabase)
+window.addEventListener('DOMContentLoaded', async () => {
   const preloader = document.getElementById('preloader');
   const ringFill  = document.getElementById('preloaderRingFill');
   const barFill   = document.getElementById('preloaderBarFill');
   const pctEl     = document.getElementById('preloaderPct');
   const statusEl  = document.getElementById('preloaderStatus');
 
-  // Calcula a circunferência exata para r=44
-  const CIRCUMFERENCE = 2 * Math.PI * 44; // ≈ 276.5
+  const CIRCUMFERENCE = 2 * Math.PI * 44;
   ringFill.style.strokeDasharray  = CIRCUMFERENCE;
   ringFill.style.strokeDashoffset = CIRCUMFERENCE;
 
   const messages = [
     'Inicializando sistemas...',
-    'Carregando roteiro semanal...',
-    'Conectando ao assistente IA...',
+    'Verificando autenticação...',
+    'Conectando ao banco de dados...',
     'Preparando painel de controle...',
     'Tudo pronto!',
   ];
 
-  // Verifica sessão ANTES de qualquer animação para evitar flash de conteúdo
-  const isLogged = checkSession();
+  // Verifica sessão ativa no Supabase ANTES da animação
+  const user = await checkSession();
 
   let progress = 0;
-  const totalDuration = 3500;
+  const totalDuration = user ? 2000 : 2500;
   const interval      = 25;
   const ticks         = totalDuration / interval;
   const step          = 100 / ticks;
@@ -3325,17 +3276,11 @@ window.addEventListener('DOMContentLoaded', () => {
     tick++;
     progress = Math.min(100, Math.round(tick * step));
 
-    // Atualiza arco SVG
     const offset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE;
     ringFill.style.strokeDashoffset = offset;
-
-    // Atualiza barra linear
     barFill.style.width = progress + '%';
-
-    // Atualiza percentual
     pctEl.textContent = progress + '%';
 
-    // Atualiza mensagem de status conforme checkpoint de progresso
     const msgIdx = Math.min(
       Math.floor((progress / 100) * messages.length),
       messages.length - 1
@@ -3344,9 +3289,17 @@ window.addEventListener('DOMContentLoaded', () => {
 
     if (progress >= 100) {
       clearInterval(timer);
-      setTimeout(() => {
-        preloader.classList.add('fade-out');
-        if (isLogged) init();
+      setTimeout(async () => {
+        if (user && !_initialized) {
+          _initialized = true;
+          await loadTasksFromSupabase(user.id);
+          preloader.classList.add('fade-out');
+          init();
+        } else {
+          // Não logado: mostra tela de login
+          // OU já inicializado pelo onAuthStateChange (OAuth redirect)
+          preloader.classList.add('fade-out');
+        }
       }, 250);
     }
   }, interval);
