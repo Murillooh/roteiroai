@@ -2193,6 +2193,36 @@ const isCapacitorApp = !!(window.Capacitor && window.Capacitor.isNative);
 const BASE_URL = isCapacitorApp ? PRODUCTION_API_URL : '';
 const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
+// Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
+async function callGeminiDirect(systemPrompt, userMessage, apiKey) {
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+  const payload = {
+    system_instruction: {
+      parts: [{ text: systemPrompt || '' }]
+    },
+    contents: [
+      { role: 'user', parts: [{ text: userMessage }] }
+    ],
+    generationConfig: {
+      maxOutputTokens: 1000,
+      temperature: 0.7,
+    }
+  };
+
+  const response = await fetch(geminiUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    const errMsg = data?.error?.message || 'Erro desconhecido na API do Gemini.';
+    throw new Error(errMsg);
+  }
+  return { text: data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta.' };
+}
+
 // ── Date Utilities ───────────────────────────────────────────────────────────
 function formatDateISO(date) {
   const y = date.getFullYear();
@@ -3300,17 +3330,19 @@ async function generateTaskDetailsWithIA() {
 
   if (!targetTask) return;
 
+  const localKey = localStorage.getItem('google_api_key');
   let serverHasKey = false;
-  try {
-    const statusRes = await fetch(`${BASE_URL}/api/status`);
-    const statusData = await statusRes.json();
-    serverHasKey = statusData.serverHasKey === true;
-  } catch (e) {
-    console.warn('Erro ao checar status do servidor:', e);
+  
+  if (!localKey) {
+    try {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    } catch (e) {
+      console.warn('Erro ao checar status do servidor:', e);
+    }
   }
 
-  const localKey = localStorage.getItem('google_api_key');
-  
   if (!serverHasKey && !localKey) {
     alert('Por favor, configure sua chave do Google (Gemini) clicando em ⚙ API no topo da página.');
     showModal();
@@ -3337,22 +3369,26 @@ Data/Base operacional visitada: "${dayName} (${dayDest})"
 ${targetTask.time ? 'Horário programado: ' + targetTask.time : ''}`;
 
   try {
-    const res = await fetch(API_ENDPOINT, {
-      method:  'POST',
-      headers: {
-        'Content-Type':     'application/json',
-        'x-client-api-key': serverHasKey ? '' : localKey,
-      },
-      body: JSON.stringify({
-        systemPrompt,
-        userMessage,
-      }),
-    });
+    let data;
+    if (localKey) {
+      data = await callGeminiDirect(systemPrompt, userMessage, localKey);
+    } else {
+      const res = await fetch(API_ENDPOINT, {
+        method:  'POST',
+        headers: {
+          'Content-Type':     'application/json',
+          'x-client-api-key': '',
+        },
+        body: JSON.stringify({
+          systemPrompt,
+          userMessage,
+        }),
+      });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data?.error || 'Erro ao gerar detalhamento.');
+      data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Erro ao gerar detalhamento.');
+      }
     }
 
     const reply = data.text || '';
@@ -3691,17 +3727,19 @@ function downloadReportPDF(aiText) {
 
 // ── Exportação Rápida com IA via Dashboard ──────────────────────────────────────
 async function exportDashboardPDF() {
+  const localKey = localStorage.getItem('google_api_key');
   let serverHasKey = false;
-  try {
-    const statusRes = await fetch('/api/status');
-    const statusData = await statusRes.json();
-    serverHasKey = statusData.serverHasKey === true;
-  } catch (e) {
-    console.warn('Erro ao checar status do servidor:', e);
+  
+  if (!localKey) {
+    try {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    } catch (e) {
+      console.warn('Erro ao checar status do servidor:', e);
+    }
   }
 
-  const localKey = localStorage.getItem('google_api_key');
-  
   if (!serverHasKey && !localKey) {
     alert('Por favor, configure sua chave do Google (Gemini) clicando em ⚙ API no topo da página antes de exportar.');
     showModal();
@@ -3718,22 +3756,26 @@ Foque no progresso consolidado, bases visitadas e pontos de atenção.
 Responda em português brasileiro de forma profissional e direta.`;
 
   try {
-    const res = await fetch(API_ENDPOINT, {
-      method:  'POST',
-      headers: {
-        'Content-Type':     'application/json',
-        'x-client-api-key': serverHasKey ? '' : localKey,
-      },
-      body: JSON.stringify({
-        systemPrompt,
-        userMessage: context + '\n\nPor favor, faça a análise operacional do meu roteiro semanal.',
-      }),
-    });
+    let data;
+    if (localKey) {
+      data = await callGeminiDirect(systemPrompt, context + '\n\nPor favor, faça a análise operacional do meu roteiro semanal.', localKey);
+    } else {
+      const res = await fetch(API_ENDPOINT, {
+        method:  'POST',
+        headers: {
+          'Content-Type':     'application/json',
+          'x-client-api-key': '',
+        },
+        body: JSON.stringify({
+          systemPrompt,
+          userMessage: context + '\n\nPor favor, faça a análise operacional do meu roteiro semanal.',
+        }),
+      });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data?.error || 'Erro ao gerar análise.');
+      data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Erro ao gerar análise.');
+      }
     }
 
     const reply = data.text || 'Resumo operacional concluído com base nos dados do sistema.';
@@ -3753,19 +3795,20 @@ Responda em português brasileiro de forma profissional e direta.`;
   }
 }
 
-// ── Chamada da API do Gemini ──────────────────────────────────────────────────
 async function callAI(userMsg) {
+  const localKey = localStorage.getItem('google_api_key');
   let serverHasKey = false;
-  try {
-    const statusRes = await fetch('/api/status');
-    const statusData = await statusRes.json();
-    serverHasKey = statusData.serverHasKey === true;
-  } catch (e) {
-    console.warn('Erro ao checar status do servidor:', e);
+  
+  if (!localKey) {
+    try {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    } catch (e) {
+      console.warn('Erro ao checar status do servidor:', e);
+    }
   }
 
-  const localKey = localStorage.getItem('google_api_key');
-  
   if (!serverHasKey && !localKey) {
     addAIMessage('error', 'Configure sua chave do Google (Gemini) clicando em <strong>⚙ API</strong> no topo da página.');
     showModal();
@@ -3800,31 +3843,36 @@ Em seguida, escreva a sua resposta normal confirmando a criação da tarefa de m
 Tarefa agendada com sucesso para Quinta-feira, 25 de junho de 2026 às 08:00.`;
 
   try {
-    const res = await fetch(API_ENDPOINT, {
-      method:  'POST',
-      headers: {
-        'Content-Type':     'application/json',
-        'x-client-api-key': serverHasKey ? '' : localKey,
-      },
-      body: JSON.stringify({
-        systemPrompt,
-        userMessage: context + '\n\nPergunta do usuário: ' + userMsg,
-      }),
-    });
+    let data;
+    if (localKey) {
+      data = await callGeminiDirect(systemPrompt, context + '\n\nPergunta do usuário: ' + userMsg, localKey);
+    } else {
+      const res = await fetch(API_ENDPOINT, {
+        method:  'POST',
+        headers: {
+          'Content-Type':     'application/json',
+          'x-client-api-key': '',
+        },
+        body: JSON.stringify({
+          systemPrompt,
+          userMessage: context + '\n\nPergunta do usuário: ' + userMsg,
+        }),
+      });
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      const errMsg = data?.error || 'Erro desconhecido da API.';
-      typingEl.remove();
-      if (res.status === 401 || res.status === 403) {
-        addAIMessage('error', '🔑 Chave do Google inválida ou expirada. Clique em <strong>⚙ API</strong> e insira uma chave válida.');
-        setStatus(false);
-      } else {
-        addAIMessage('error', `Erro ${res.status}: ${errMsg}`);
+      if (!res.ok) {
+        const rawData = await res.json();
+        const errMsg = rawData?.error || 'Erro desconhecido da API.';
+        typingEl.remove();
+        if (res.status === 401 || res.status === 403) {
+          addAIMessage('error', '🔑 Chave do Google inválida ou expirada. Clique em <strong>⚙ API</strong> e insira uma chave válida.');
+          setStatus(false);
+        } else {
+          addAIMessage('error', `Erro ${res.status}: ${errMsg}`);
+        }
+        btn.disabled = false;
+        return;
       }
-      btn.disabled = false;
-      return;
+      data = await res.json();
     }
 
     const reply = data.text || 'Não consegui processar a resposta.';
@@ -3848,7 +3896,7 @@ Tarefa agendada com sucesso para Quinta-feira, 25 de junho de 2026 às 08:00.`;
     }
   } catch (e) {
     typingEl.remove();
-    addAIMessage('error', '⚠️ Não foi possível conectar ao servidor local.<br>Certifique-se de que o <code>server.js</code> está rodando com <code>npm start</code>.');
+    addAIMessage('error', '⚠️ Não foi possível conectar ao servidor de IA.<br>Verifique a sua conexão com a internet ou se a sua chave da API está correta.');
     console.error('Erro de conexão:', e);
   }
 
