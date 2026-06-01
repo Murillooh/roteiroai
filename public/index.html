@@ -2284,8 +2284,12 @@ _supabase.auth.onAuthStateChange(async (event, session) => {
     pctEl.textContent = '100%';
     statusEl.textContent = 'Sincronizando suas tarefas...';
 
-    await loadDestinationsFromSupabase(session.user.id);
-    await loadTasksFromSupabase(session.user.id);
+    try {
+      await loadDestinationsFromSupabase(session.user.id);
+      await loadTasksFromSupabase(session.user.id);
+    } catch (err) {
+      console.error('Erro ao sincronizar dados com o Supabase:', err);
+    }
 
     statusEl.textContent = 'Tudo pronto!';
     setTimeout(() => {
@@ -3435,8 +3439,12 @@ window.addEventListener('DOMContentLoaded', async () => {
       setTimeout(async () => {
         if (user && !_initialized) {
           _initialized = true;
-          await loadDestinationsFromSupabase(user.id);
-          await loadTasksFromSupabase(user.id);
+          try {
+            await loadDestinationsFromSupabase(user.id);
+            await loadTasksFromSupabase(user.id);
+          } catch (err) {
+            console.error('Erro ao inicializar dados do preloader:', err);
+          }
           preloader.classList.add('fade-out');
           init();
         } else {
