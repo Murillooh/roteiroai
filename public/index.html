@@ -3921,12 +3921,17 @@ document.getElementById('logoutConfirmModal').addEventListener('click', function
 });
 
 // Inicialização com Pre-load Premium (autenticação via Supabase)
-window.addEventListener('DOMContentLoaded', async () => {
+function startPreloader() {
   const preloader = document.getElementById('preloader');
   const ringFill  = document.getElementById('preloaderRingFill');
   const barFill   = document.getElementById('preloaderBarFill');
   const pctEl     = document.getElementById('preloaderPct');
   const statusEl  = document.getElementById('preloaderStatus');
+
+  if (!preloader || !ringFill || !barFill || !pctEl || !statusEl) {
+    console.error('Preloader HTML elements not found.');
+    return;
+  }
 
   const CIRCUMFERENCE = 2 * Math.PI * 44;
   ringFill.style.strokeDasharray  = CIRCUMFERENCE;
@@ -4011,7 +4016,13 @@ window.addEventListener('DOMContentLoaded', async () => {
       }, 250);
     }
   }, interval);
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', startPreloader);
+} else {
+  startPreloader();
+}
 </script>
 </body>
 </html>
