@@ -2166,14 +2166,14 @@ function initGoogleSignIn() {
       cancel_on_tap_outside: true
     });
 
-    // Renderiza o botão oficial com tema escuro elegante
+    // Renderiza o botão oficial com tema outline e cantos arredondados (pill)
     google.accounts.id.renderButton(
       document.getElementById('googleButtonContainer'),
       {
-        theme: 'filled_black',
+        theme: 'outline',
         size: 'large',
         type: 'standard',
-        shape: 'rectangular',
+        shape: 'pill',
         text: 'signin_with',
         logo_alignment: 'left',
         width: 360
