@@ -2289,6 +2289,11 @@ async function init() {
   const isReady  = serverHasKey || !!localKey;
   setStatus(isReady);
 
+  if (serverHasKey) {
+    const configBtn = document.getElementById('configBtn');
+    if (configBtn) configBtn.style.display = 'none';
+  }
+
   if (!isReady) {
     addAIMessage('assistant',
       'Olá! 👋 Para usar o assistente IA, clique em <strong>⚙ API</strong> no topo e insira sua chave do Google (Gemini).\n\nA chave é gratuita — obtenha em aistudio.google.com/apikey\n\nEnquanto isso, você já pode registrar suas tarefas normalmente.'
