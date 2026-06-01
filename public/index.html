@@ -1842,6 +1842,11 @@
     <!-- Botão real de Sign-In com Google -->
     <div id="googleButtonContainer" style="margin-top: 10px; min-height: 44px; display: none; justify-content: center; align-items: center; width: 100%;"></div>
     
+    <!-- Link para acionar o simulador em caso de bloqueio do Google (WebView/WhatsApp) -->
+    <div id="googleBypassLink" style="margin-top: 8px; font-size: 11px; text-align: center; display: none; width: 100%;">
+      <a href="#" onclick="event.preventDefault(); handleGoogleLogin();" style="color: var(--sub); text-decoration: none; transition: color 0.15s; font-weight: 500;" onmouseover="this.style.color='var(--ai)'" onmouseout="this.style.color='var(--sub)'">🔑 Problemas para logar? Use o simulador</a>
+    </div>
+    
     <!-- Botão do simulador como fallback (se o SDK do Google falhar) -->
     <button type="button" id="googleFallbackBtn" class="login-google-btn" onclick="handleGoogleLogin()" title="Entrar com o Google (Simulador)" style="display: none;">
       <svg class="google-icon" width="18" height="18" viewBox="0 0 24 24">
@@ -2181,6 +2186,7 @@ function initGoogleSignIn() {
     );
     
     document.getElementById('googleButtonContainer').style.display = 'flex';
+    document.getElementById('googleBypassLink').style.display = 'block';
     document.getElementById('googleFallbackBtn').style.display = 'none';
     
     // Ativa One Tap (login sutil automático se o usuário já estiver logado no Google)
@@ -2188,6 +2194,7 @@ function initGoogleSignIn() {
   } else {
     // Se falhar o carregamento (offline, etc), mostra o simulador como fallback
     document.getElementById('googleButtonContainer').style.display = 'none';
+    document.getElementById('googleBypassLink').style.display = 'none';
     document.getElementById('googleFallbackBtn').style.display = 'flex';
   }
 }
