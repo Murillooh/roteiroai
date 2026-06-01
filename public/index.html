@@ -1554,6 +1554,9 @@
     body[data-mobile-view="tasks"] #dashboardView {
       display: none !important;
     }
+    body[data-mobile-view="tasks"] #searchView {
+      display: none !important;
+    }
     body[data-mobile-view="tasks"] .ai-panel {
       display: none !important;
     }
@@ -1570,7 +1573,29 @@
     body[data-mobile-view="dashboard"] #dashboardView {
       display: flex !important;
     }
+    body[data-mobile-view="dashboard"] #searchView {
+      display: none !important;
+    }
     body[data-mobile-view="dashboard"] .ai-panel {
+      display: none !important;
+    }
+
+    body[data-mobile-view="search"] .sidebar {
+      display: none !important;
+    }
+    body[data-mobile-view="search"] .main {
+      display: flex !important;
+    }
+    body[data-mobile-view="search"] #dailyView {
+      display: none !important;
+    }
+    body[data-mobile-view="search"] #dashboardView {
+      display: none !important;
+    }
+    body[data-mobile-view="search"] #searchView {
+      display: flex !important;
+    }
+    body[data-mobile-view="search"] .ai-panel {
       display: none !important;
     }
 
@@ -2133,6 +2158,39 @@
       </div>
     </div>
 
+    <!-- Search View Container -->
+    <div id="searchView" style="display:none; flex-direction:column; gap:20px;" class="dashboard-container">
+      <button class="mobile-back-btn" onclick="switchMobileView('agenda')">← Voltar para Agenda</button>
+      <div class="db-header">
+        <h2 class="db-title">Pesquisar Tarefas</h2>
+        <p class="db-subtitle">Busque atividades em todo o histórico e veja pesquisas recentes</p>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="searchInput" placeholder="Buscar tarefa por texto (ex: Santo Amaro, reunião...)" style="flex: 1; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; padding: 10px 14px; outline: none; transition: border-color .15s;" onkeydown="if(event.key==='Enter'){performSearch(this.value)}" />
+        <button class="btn-modal primary" style="padding: 10px 20px; display: flex; align-items: center; gap: 6px;" onclick="performSearch(document.getElementById('searchInput').value)">🔍 Buscar</button>
+      </div>
+
+      <div class="db-box" style="padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div class="db-box-title" style="margin-bottom: 0;">PESQUISAS RECENTES</div>
+          <button onclick="clearRecentSearches()" style="background: none; border: none; color: var(--sub); font-size: 10px; cursor: pointer; opacity: 0.7; transition: opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">🗑️ Limpar recentes</button>
+        </div>
+        <div id="recentSearchesList" style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <span style="font-size: 11px; color: var(--sub);">Nenhuma pesquisa recente.</span>
+        </div>
+      </div>
+
+      <div class="db-box" style="flex: 1; min-height: 250px;">
+        <div class="db-box-title">RESULTADOS DA BUSCA</div>
+        <div id="searchResults" class="task-list">
+          <div class="empty-state" style="border: none; padding: 20px;">
+            Digite uma palavra-chave acima para buscar em todas as suas tarefas.
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- AI PANEL -->
@@ -2174,15 +2232,19 @@
 
   <!-- BOTTOM NAVIGATION FOR MOBILE -->
   <nav class="bottom-nav">
-    <button class="bottom-nav-btn active" onclick="switchMobileView('agenda')">
+    <button class="bottom-nav-btn active" id="btnNavAgenda" onclick="switchMobileView('agenda')">
       <span class="bottom-nav-icon">📅</span>
       <span class="bottom-nav-text">Agenda</span>
     </button>
-    <button class="bottom-nav-btn" onclick="switchMobileView('dashboard')">
+    <button class="bottom-nav-btn" id="btnNavSearch" onclick="setActiveDay('search')">
+      <span class="bottom-nav-icon">🔍</span>
+      <span class="bottom-nav-text">Pesquisa</span>
+    </button>
+    <button class="bottom-nav-btn" id="btnNavDashboard" onclick="setActiveDay('dashboard')">
       <span class="bottom-nav-icon">📊</span>
       <span class="bottom-nav-text">Dashboard</span>
     </button>
-    <button class="bottom-nav-btn" onclick="switchMobileView('chat')">
+    <button class="bottom-nav-btn" id="btnNavChat" onclick="switchMobileView('chat')">
       <span class="bottom-nav-icon">💬</span>
       <span class="bottom-nav-text">Chat IA</span>
     </button>
@@ -2892,6 +2954,24 @@ function renderSidebar() {
   dbItem.onclick = () => setActiveDay('dashboard');
   list.appendChild(dbItem);
 
+  // 1.5. Inserir botão de Pesquisar (Search)
+  const searchItem = document.createElement('div');
+  searchItem.className = 'day-item' + (activeDay === 'search' ? ' active' : '');
+  searchItem.style.setProperty('--accent-color', 'var(--blue)');
+  searchItem.style.borderLeftColor = activeDay === 'search' ? 'var(--blue)' : 'transparent';
+  searchItem.innerHTML = `
+    <div class="day-dot" style="background:var(--blue); box-shadow: 0 0 8px var(--blue)"></div>
+    <div class="day-info">
+      <div class="day-name">Pesquisar</div>
+      <div class="day-dest">Buscar no histórico</div>
+    </div>
+    <div class="day-badge" style="color:var(--blue); border:1px solid var(--blue)22; background:var(--blue)11">
+      🔍
+    </div>
+  `;
+  searchItem.onclick = () => setActiveDay('search');
+  list.appendChild(searchItem);
+
   // 2. Inserir os dias da semana dinâmicos
   DAYS.forEach(d => {
     const dayTasks = tasks[d.id] || [];
@@ -2950,15 +3030,16 @@ function switchMobileView(view) {
   document.body.setAttribute('data-mobile-view', view);
   
   const buttons = document.querySelectorAll('.bottom-nav-btn');
-  if (buttons.length === 3) {
-    buttons.forEach(btn => btn.classList.remove('active'));
-    if (view === 'agenda' || view === 'tasks') {
-      buttons[0].classList.add('active');
-    } else if (view === 'dashboard') {
-      buttons[1].classList.add('active');
-    } else if (view === 'chat') {
-      buttons[2].classList.add('active');
-    }
+  buttons.forEach(btn => btn.classList.remove('active'));
+  
+  if (view === 'agenda' || view === 'tasks') {
+    document.getElementById('btnNavAgenda')?.classList.add('active');
+  } else if (view === 'search') {
+    document.getElementById('btnNavSearch')?.classList.add('active');
+  } else if (view === 'dashboard') {
+    document.getElementById('btnNavDashboard')?.classList.add('active');
+  } else if (view === 'chat') {
+    document.getElementById('btnNavChat')?.classList.add('active');
   }
 }
 
@@ -2969,17 +3050,30 @@ function setActiveDay(id) {
 
   const dailyView = document.getElementById('dailyView');
   const dashboardView = document.getElementById('dashboardView');
+  const searchView = document.getElementById('searchView');
 
   if (id === 'dashboard') {
     dailyView.style.display = 'none';
     dashboardView.style.display = 'flex';
+    if (searchView) searchView.style.display = 'none';
     renderDashboard();
     if (window.innerWidth <= 992) {
       switchMobileView('dashboard');
     }
+  } else if (id === 'search') {
+    dailyView.style.display = 'none';
+    dashboardView.style.display = 'none';
+    if (searchView) {
+      searchView.style.display = 'flex';
+      renderRecentSearches();
+    }
+    if (window.innerWidth <= 992) {
+      switchMobileView('search');
+    }
   } else {
     dailyView.style.display = 'flex';
     dashboardView.style.display = 'none';
+    if (searchView) searchView.style.display = 'none';
     if (window.innerWidth <= 992) {
       switchMobileView('tasks');
     }
@@ -3438,6 +3532,9 @@ async function saveTaskDetails() {
 
   if (activeDay === 'dashboard') {
     renderDashboard();
+  } else if (activeDay === 'search') {
+    const query = document.getElementById('searchInput').value;
+    performSearch(query);
   }
 }
 
@@ -4753,6 +4850,206 @@ async function executeAITaskCreate(taskData) {
   if (statusEl) {
     statusEl.textContent = 'Tarefa criada!';
     setTimeout(() => { statusEl.textContent = 'IA conectada'; }, 3000);
+  }
+}
+
+// ── Algoritmo de Busca e Histórico de Pesquisas ────────────────────────────────
+function getRecentSearches() {
+  if (!currentUser) return [];
+  const key = `recent_searches_${currentUser.id}`;
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    console.error('Error loading recent searches:', e);
+    return [];
+  }
+}
+
+function saveRecentSearch(query) {
+  if (!currentUser || !query || !query.trim()) return;
+  const cleanQuery = query.trim();
+  const key = `recent_searches_${currentUser.id}`;
+  let searches = getRecentSearches();
+  
+  // Remove duplicates and add to start
+  searches = searches.filter(s => s.toLowerCase() !== cleanQuery.toLowerCase());
+  searches.unshift(cleanQuery);
+  
+  // Keep only the 5 most recent searches
+  if (searches.length > 5) {
+    searches = searches.slice(0, 5);
+  }
+  
+  localStorage.setItem(key, JSON.stringify(searches));
+  renderRecentSearches();
+}
+
+function clearRecentSearches() {
+  if (!currentUser) return;
+  const key = `recent_searches_${currentUser.id}`;
+  localStorage.removeItem(key);
+  renderRecentSearches();
+}
+
+function renderRecentSearches() {
+  const container = document.getElementById('recentSearchesList');
+  if (!container) return;
+  
+  const searches = getRecentSearches();
+  if (searches.length === 0) {
+    container.innerHTML = `<span style="font-size: 11px; color: var(--sub);">Nenhuma pesquisa recente.</span>`;
+    return;
+  }
+  
+  container.innerHTML = '';
+  searches.forEach(search => {
+    const btn = document.createElement('button');
+    btn.className = 'ai-quick-btn';
+    btn.style.fontSize = '10px';
+    btn.style.padding = '4px 10px';
+    btn.style.borderRadius = '4px';
+    btn.style.borderColor = 'rgba(116, 192, 252, 0.3)';
+    btn.style.color = 'var(--blue)';
+    btn.textContent = search;
+    btn.onclick = () => {
+      const input = document.getElementById('searchInput');
+      if (input) input.value = search;
+      performSearch(search);
+    };
+    container.appendChild(btn);
+  });
+}
+
+function performSearch(query) {
+  const resultsContainer = document.getElementById('searchResults');
+  if (!resultsContainer) return;
+
+  if (!query || !query.trim()) {
+    resultsContainer.innerHTML = `
+      <div class="empty-state" style="border: none; padding: 20px;">
+        Digite uma palavra-chave acima para buscar em todas as suas tarefas.
+      </div>
+    `;
+    return;
+  }
+
+  const cleanQuery = query.trim().toLowerCase();
+  saveRecentSearch(cleanQuery);
+
+  // Filter tasks
+  const matchedGroups = [];
+  
+  // Sort date keys chronologically
+  const sortedDates = Object.keys(tasks).sort();
+  
+  sortedDates.forEach(dateStr => {
+    const dayTasks = tasks[dateStr] || [];
+    const filtered = dayTasks.filter(t => {
+      const textMatch = t.text && t.text.toLowerCase().includes(cleanQuery);
+      const detailsMatch = t.details && t.details.toLowerCase().includes(cleanQuery);
+      return textMatch || detailsMatch;
+    });
+
+    if (filtered.length > 0) {
+      // Find or build day info
+      const d = DAYS.find(x => x.id === dateStr);
+      const dayName = d ? d.name : formatWeekdayLong(dateStr);
+      const dateLabel = d ? d.dateLabel : formatDateBR(new Date(dateStr + 'T00:00:00'));
+      const dayDest = d ? d.dest : (customDestinations[dateStr] || 'Sem localidade');
+      const dayColor = d ? d.color : '#b197fc';
+
+      matchedGroups.push({
+        dateStr,
+        dayName,
+        dateLabel,
+        dayDest,
+        dayColor,
+        tasks: filtered
+      });
+    }
+  });
+
+  if (matchedGroups.length === 0) {
+    resultsContainer.innerHTML = `
+      <div class="empty-state" style="border: none; padding: 32px;">
+        🔍 Nenhuma tarefa encontrada para "${query}".
+      </div>
+    `;
+    return;
+  }
+
+  resultsContainer.innerHTML = '';
+  matchedGroups.forEach(group => {
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'db-pending-group';
+    groupDiv.style.setProperty('--group-color', group.dayColor);
+    groupDiv.style.marginBottom = '16px';
+
+    // Header of the day
+    const groupHeader = document.createElement('div');
+    groupHeader.style.display = 'flex';
+    groupHeader.style.justifyContent = 'space-between';
+    groupHeader.style.alignItems = 'center';
+    groupHeader.style.cursor = 'pointer';
+    groupHeader.style.padding = '4px 0 8px';
+    groupHeader.title = 'Ir para este dia';
+    groupHeader.innerHTML = `
+      <span style="font-size: 11px; font-weight: 700; color: ${group.dayColor}">
+        📅 ${group.dayName} (${group.dateLabel}) · Rota: ${group.dayDest || 'Sem localidade'}
+      </span>
+      <span style="font-size: 10px; color: var(--sub); text-decoration: underline;">Ir para o dia</span>
+    `;
+    groupHeader.onclick = () => {
+      // Navigate to selected day
+      currentWeekStart = getMonday(new Date(group.dateStr + 'T00:00:00'));
+      activeDay = group.dateStr;
+      currentCalendarMonth = new Date(group.dateStr + 'T00:00:00');
+      updateDaysOfWeek();
+      renderCalendar();
+      setActiveDay(group.dateStr);
+    };
+    groupDiv.appendChild(groupHeader);
+
+    // Tasks list
+    group.tasks.forEach(t => {
+      const item = document.createElement('div');
+      item.className = 'task-item' + (t.done ? ' done' : '');
+      item.style.fontSize = '12px';
+      item.style.padding = '8px 12px';
+      
+      if (t.done) {
+        item.style.cursor = 'pointer';
+        item.title = 'Clique para ver detalhes do chamado';
+        item.onclick = () => openTaskDetails(t.id);
+      }
+
+      item.innerHTML = `
+        <div class="task-check ${t.done ? 'checked' : ''}" onclick="event.stopPropagation(); toggleTaskAndRefreshSearch(${t.id}, '${query.replace(/'/g, "\\'")}')">
+          ${t.done ? '✓' : ''}
+        </div>
+        <div class="task-text" style="${t.done ? 'text-decoration:line-through' : ''}">
+          ${t.text} ${t.done ? '<span style="font-size:10px; color:var(--ai); margin-left:6px; font-style:normal; font-weight:600; opacity:0.85;">📝 Ver Detalhes</span>' : ''}
+        </div>
+        ${t.time ? `<div class="task-time">${t.time}</div>` : ''}
+        <button class="task-delete" onclick="event.stopPropagation(); deleteTaskAndRefreshSearch(${t.id}, '${query.replace(/'/g, "\\'")}')">✕</button>
+      `;
+      groupDiv.appendChild(item);
+    });
+
+    resultsContainer.appendChild(groupDiv);
+  });
+}
+
+async function toggleTaskAndRefreshSearch(id, query) {
+  await toggleTask(id);
+  performSearch(query);
+}
+
+async function deleteTaskAndRefreshSearch(id, query) {
+  if (confirm('Tem certeza que deseja excluir esta tarefa?')) {
+    await deleteTask(id);
+    performSearch(query);
   }
 }
 
