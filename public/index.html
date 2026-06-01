@@ -2188,7 +2188,8 @@ try {
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const PRODUCTION_API_URL = 'https://roteiroai.vercel.app';
+const PRODUCTION_API_URL = 'http://192.168.1.106:3000'; // IP local do seu computador para testes no Wi-Fi
+// const PRODUCTION_API_URL = 'https://roteiroai.vercel.app'; // URL de produção na Vercel
 const isCapacitorApp = !!(window.Capacitor && window.Capacitor.isNative);
 const BASE_URL = isCapacitorApp ? PRODUCTION_API_URL : '';
 const API_ENDPOINT = `${BASE_URL}/api/chat`;
