@@ -27,7 +27,7 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 
-  const { systemPrompt, userMessage } = req.body;
+  const { systemPrompt, userMessage, contents } = req.body;
 
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
 
@@ -35,7 +35,7 @@ app.post('/api/chat', async (req, res) => {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
     },
-    contents: [
+    contents: contents || [
       { role: 'user', parts: [{ text: userMessage }] }
     ],
     generationConfig: {

@@ -2142,6 +2142,9 @@
       <div>
         <div class="ai-title">Assistente <span>IA</span></div>
       </div>
+      <button onclick="clearChatHistory()" style="background:none; border:none; color:var(--sub); cursor:pointer; font-size:11px; margin-left:auto; margin-right:8px; display:flex; align-items:center; gap:4px; opacity:0.6; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Limpar Histórico">
+        🗑️ Limpar
+      </button>
       <div class="ai-model-badge">gemini-3.1-flash-lite</div>
     </div>
 
@@ -2225,14 +2228,14 @@ const BASE_URL = isCapacitorApp ? PRODUCTION_API_URL : '';
 const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
-async function callGeminiDirect(systemPrompt, userMessage, apiKey) {
+async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
   const payload = {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
     },
-    contents: [
-      { role: 'user', parts: [{ text: userMessage }] }
+    contents: Array.isArray(userMessageOrContents) ? userMessageOrContents : [
+      { role: 'user', parts: [{ text: userMessageOrContents }] }
     ],
     generationConfig: {
       maxOutputTokens: 1000,
@@ -2309,6 +2312,7 @@ let currentCalendarMonth = new Date(currentWeekStart);
 let isAIReady = false;
 let currentUser = null;
 let _initialized = false;
+let chatHistory = [];
 
 // Initialize dynamic days of week dates
 updateDaysOfWeek();
@@ -2797,21 +2801,72 @@ async function init() {
     if (configBtn) configBtn.style.display = 'none';
   }
 
+  // Carrega o histórico de mensagens salvas
+  loadChatHistory();
+
+  if (!isReady) {
+    setTimeout(showModal, 800);
+  }
+}
+
+function showWelcomeMessage() {
+  const localKey = localStorage.getItem('google_api_key');
+  const isReady = isAIReady || !!localKey;
+  
   if (!isReady) {
     addAIMessage('assistant',
-      'Olá! 👋 Para usar o assistente IA, clique em <strong>⚙ API</strong> no topo e insira sua chave do Google (Gemini).\n\nA chave é gratuita — obtenha em aistudio.google.com/apikey\n\nEnquanto isso, você já pode registrar suas tarefas normalmente.'
+      'Olá! 👋 Para usar o assistente IA, clique em <strong>⚙ API</strong> no topo e insira sua chave do Google (Gemini).\n\nA chave é gratuita — obtenha em aistudio.google.com/apikey\n\nEnquanto isso, você já pode registrar suas tarefas normalmente.',
+      false, false, null, true
     );
-    setTimeout(showModal, 800);
   } else {
-    const src = serverHasKey ? 'via servidor (.env)' : 'via interface';
     addAIMessage('assistant',
       `Olá! 👋 Sou seu assistente de roteiro com Google Gemini.
 
 Posso planejar reuniões, analisar suas produtividade semanal, e gerenciar seu calendário completo de visitas.
 
-💡 **Agendamento por IA**: Experimente digitar no chat: *"Criar uma tarefa para o dia 25/06 às 8 horas da manhã e me lembrar"* que eu agendarei e posicionarei a tarefa diretamente no seu calendário!`
+💡 **Agendamento por IA**: Experimente digitar no chat: *"Criar uma tarefa para o dia 25/06 às 8 horas da manhã e me lembrar"* que eu agendarei e posicionarei a tarefa diretamente no seu calendário!`,
+      false, false, null, true
     );
   }
+}
+
+function loadChatHistory() {
+  const msgs = document.getElementById('aiMessages');
+  if (!msgs) return;
+  msgs.innerHTML = '';
+  chatHistory = [];
+
+  if (!currentUser) return;
+  const saved = localStorage.getItem(`chat_history_${currentUser.id}`);
+  if (saved) {
+    try {
+      chatHistory = JSON.parse(saved);
+      if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+        chatHistory.forEach(m => {
+          addAIMessage(m.role, m.text, false, m.isReport, m.fileConfig, true);
+        });
+      }
+    } catch (e) {
+      console.error('Error loading chat history:', e);
+    }
+  }
+
+  if (chatHistory.length === 0) {
+    showWelcomeMessage();
+  }
+}
+
+function clearChatHistory() {
+  if (!currentUser) return;
+  if (!confirm('Deseja limpar todo o histórico de conversas do chat?')) return;
+  
+  localStorage.removeItem(`chat_history_${currentUser.id}`);
+  chatHistory = [];
+  
+  const msgs = document.getElementById('aiMessages');
+  if (msgs) msgs.innerHTML = '';
+  
+  showWelcomeMessage();
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -3617,7 +3672,7 @@ async function quickPrompt(type) {
   await callAI(prompt);
 }
 
-function addAIMessage(role, text, isTyping = false, isReport = false, fileConfig = null) {
+function addAIMessage(role, text, isTyping = false, isReport = false, fileConfig = null, skipSave = false) {
   const msgs = document.getElementById('aiMessages');
   const div  = document.createElement('div');
   div.className = `ai-msg ${role}`;
@@ -3657,6 +3712,13 @@ function addAIMessage(role, text, isTyping = false, isReport = false, fileConfig
   }
   msgs.appendChild(div);
   msgs.scrollTop = msgs.scrollHeight;
+
+  // Persiste a mensagem no histórico do chat do usuário
+  if (!isTyping && !skipSave && currentUser) {
+    chatHistory.push({ role, text, isReport, fileConfig });
+    localStorage.setItem(`chat_history_${currentUser.id}`, JSON.stringify(chatHistory));
+  }
+
   return div;
 }
 
@@ -4543,9 +4605,36 @@ Em seguida, escreva o texto normal da sua análise ou resumo correspondente ao p
 Aqui está o relatório mensal detalhado para Junho de 2026...`;
 
   try {
+    // Constrói o histórico de mensagens formatado para a API do Gemini (limita às últimas 10)
+    const contents = [];
+    const historyForAPI = chatHistory.filter(m => m.role === 'user' || m.role === 'assistant').slice(-10);
+    
+    historyForAPI.forEach((m, idx) => {
+      const isLast = idx === historyForAPI.length - 1;
+      let text = m.text;
+      
+      // Injeta o contexto semanal completo na última mensagem (pergunta atual do usuário)
+      if (isLast && m.role === 'user') {
+        text = context + '\n\nPergunta do usuário: ' + text;
+      }
+      
+      contents.push({
+        role: m.role === 'user' ? 'user' : 'model',
+        parts: [{ text: text }]
+      });
+    });
+
+    // Fallback: se o histórico de API estiver vazio, adiciona a mensagem atual
+    if (contents.length === 0) {
+      contents.push({
+        role: 'user',
+        parts: [{ text: context + '\n\nPergunta do usuário: ' + userMsg }]
+      });
+    }
+
     let data;
     if (localKey) {
-      data = await callGeminiDirect(systemPrompt, context + '\n\nPergunta do usuário: ' + userMsg, localKey);
+      data = await callGeminiDirect(systemPrompt, contents, localKey);
     } else {
       const res = await fetch(API_ENDPOINT, {
         method:  'POST',
@@ -4556,6 +4645,7 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
         body: JSON.stringify({
           systemPrompt,
           userMessage: context + '\n\nPergunta do usuário: ' + userMsg,
+          contents: contents
         }),
       });
 
