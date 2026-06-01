@@ -2285,10 +2285,15 @@ _supabase.auth.onAuthStateChange(async (event, session) => {
     statusEl.textContent = 'Sincronizando suas tarefas...';
 
     try {
-      await loadDestinationsFromSupabase(session.user.id);
-      await loadTasksFromSupabase(session.user.id);
+      await Promise.race([
+        Promise.all([
+          loadDestinationsFromSupabase(session.user.id),
+          loadTasksFromSupabase(session.user.id)
+        ]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Database Timeout')), 3000))
+      ]);
     } catch (err) {
-      console.error('Erro ao sincronizar dados com o Supabase:', err);
+      console.error('Erro ou timeout ao sincronizar dados:', err);
     }
 
     statusEl.textContent = 'Tudo pronto!';
@@ -3440,10 +3445,15 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (user && !_initialized) {
           _initialized = true;
           try {
-            await loadDestinationsFromSupabase(user.id);
-            await loadTasksFromSupabase(user.id);
+            await Promise.race([
+              Promise.all([
+                loadDestinationsFromSupabase(user.id),
+                loadTasksFromSupabase(user.id)
+              ]),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Database Timeout')), 3000))
+            ]);
           } catch (err) {
-            console.error('Erro ao inicializar dados do preloader:', err);
+            console.error('Erro ou timeout no preloader:', err);
           }
           preloader.classList.add('fade-out');
           init();
