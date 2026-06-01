@@ -1887,7 +1887,12 @@
         <div class="day-accent-bar" id="accentBar"></div>
         <div>
           <div class="day-title" id="dayTitle"></div>
-          <div class="day-subtitle" id="daySubtitle"></div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div class="day-subtitle" id="daySubtitle"></div>
+            <button id="editLocationBtn" onclick="editCurrentLocation()" style="background:none; border:none; color:var(--sub); cursor:pointer; padding:2px; display:flex; align-items:center; opacity:0.6; transition:opacity 0.2s;" title="Editar localidade">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            </button>
+          </div>
           <div class="tipo-pill" id="tipoPill"></div>
         </div>
       </div>
@@ -2158,6 +2163,77 @@ async function handleCredentialResponse(response) {
 }
 
 
+// ── Supabase: Carregar localidades customizadas do banco de dados ──────────────
+async function loadDestinationsFromSupabase(userId) {
+  const { data, error } = await _supabase
+    .from('custom_destinations')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Erro ao carregar localidades:', error);
+    return;
+  }
+
+  // Reseta para os valores padrões primeiro
+  DAYS.forEach(d => {
+    if (d.id === 'seg') d.dest = 'Zona Sul';
+    if (d.id === 'ter') d.dest = 'Limão';
+    if (d.id === 'qua') d.dest = 'Todas as Bases';
+    if (d.id === 'qui') d.dest = 'Canindé';
+    if (d.id === 'sex') d.dest = 'Barueri';
+  });
+
+  // Aplica as customizadas salvas no banco
+  if (data) {
+    data.forEach(item => {
+      const d = DAYS.find(x => x.id === item.day_id);
+      if (d) {
+        d.dest = item.dest;
+      }
+    });
+  }
+}
+
+// ── Lógica de Edição de Localidade ───────────────────────────────────────────
+async function editCurrentLocation() {
+  if (!currentUser) return;
+  const d = DAYS.find(x => x.id === activeDay);
+  if (!d) return;
+
+  const newDest = prompt(`Digite a nova localidade/destino para ${d.name}:`, d.dest);
+  if (newDest === null) return; // Cancelado pelo usuário
+  const trimmed = newDest.trim();
+  if (!trimmed) return;
+
+  const statusEl = document.getElementById('statusText');
+  if (statusEl) statusEl.textContent = 'Salvando localidade...';
+
+  // Salva ou atualiza no Supabase
+  const { error } = await _supabase
+    .from('custom_destinations')
+    .upsert({
+      user_id: currentUser.id,
+      day_id: activeDay,
+      dest: trimmed
+    }, { onConflict: 'user_id,day_id' });
+
+  if (error) {
+    console.error('Erro ao salvar localidade no Supabase:', error);
+    alert('Erro ao salvar no banco de dados: ' + error.message);
+    if (statusEl) statusEl.textContent = 'IA conectada';
+    return;
+  }
+
+  // Atualiza localmente o array DAYS
+  d.dest = trimmed;
+
+  // Atualiza a visualização do dia ativo e a barra lateral
+  setActiveDay(activeDay);
+
+  if (statusEl) statusEl.textContent = 'IA conectada';
+}
+
 // ── Supabase: Carregar tarefas do banco de dados ──────────────────────────────
 async function loadTasksFromSupabase(userId) {
   const { data, error } = await _supabase
@@ -2208,6 +2284,7 @@ _supabase.auth.onAuthStateChange(async (event, session) => {
     pctEl.textContent = '100%';
     statusEl.textContent = 'Sincronizando suas tarefas...';
 
+    await loadDestinationsFromSupabase(session.user.id);
     await loadTasksFromSupabase(session.user.id);
 
     statusEl.textContent = 'Tudo pronto!';
@@ -3358,6 +3435,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       setTimeout(async () => {
         if (user && !_initialized) {
           _initialized = true;
+          await loadDestinationsFromSupabase(user.id);
           await loadTasksFromSupabase(user.id);
           preloader.classList.add('fade-out');
           init();
