@@ -2289,13 +2289,13 @@ function addDays(date, days) {
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 const DAYS = [
-  { id:'seg', name:'Segunda-feira', dest:'Zona Sul',       tipo:'VISITA',           color:'#b197fc', special:false, shortName:'Seg' },
-  { id:'ter', name:'Terça-feira',   dest:'Limão',          tipo:'VISITA',           color:'#69db7c', special:false, shortName:'Ter' },
-  { id:'qua', name:'Quarta-feira',  dest:'Todas as Bases', tipo:'DEMANDAS DIÁRIAS', color:'#ffd43b', special:true,  shortName:'Qua' },
-  { id:'qui', name:'Quinta-feira',  dest:'Canindé',        tipo:'VISITA',           color:'#ffa94d', special:false, shortName:'Qui' },
-  { id:'sex', name:'Sexta-feira',   dest:'Barueri',        tipo:'VISITA',           color:'#74c0fc', special:false, shortName:'Sex' },
-  { id:'sáb', name:'Sábado',        dest:'Sem escala',     tipo:'OUTROS',           color:'#ff8787', special:false, shortName:'Sáb' },
-  { id:'dom', name:'Domingo',       dest:'Sem escala',     tipo:'OUTROS',           color:'#ff8787', special:false, shortName:'Dom' }
+  { id:'seg', name:'Segunda-feira', dest:'', tipo:'VISITA',           color:'#b197fc', special:false, shortName:'Seg' },
+  { id:'ter', name:'Terça-feira',   dest:'', tipo:'VISITA',           color:'#69db7c', special:false, shortName:'Ter' },
+  { id:'qua', name:'Quarta-feira',  dest:'', tipo:'DEMANDAS DIÁRIAS', color:'#ffd43b', special:true,  shortName:'Qua' },
+  { id:'qui', name:'Quinta-feira',  dest:'', tipo:'VISITA',           color:'#ffa94d', special:false, shortName:'Qui' },
+  { id:'sex', name:'Sexta-feira',   dest:'', tipo:'VISITA',           color:'#74c0fc', special:false, shortName:'Sex' },
+  { id:'sáb', name:'Sábado',        dest:'', tipo:'OUTROS',           color:'#ff8787', special:false, shortName:'Sáb' },
+  { id:'dom', name:'Domingo',       dest:'', tipo:'OUTROS',           color:'#ff8787', special:false, shortName:'Dom' }
 ];
 
 let tasks = {}; // tasks map indexed by dateStr YYYY-MM-DD
@@ -2395,15 +2395,6 @@ setupDeepLinks();
 
 function updateDaysOfWeek() {
   const shortNames = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
-  const defaults = [
-    'Zona Sul',
-    'Limão',
-    'Todas as Bases',
-    'Canindé',
-    'Barueri',
-    'Sem escala',
-    'Sem escala'
-  ];
   
   for (let i = 0; i < 7; i++) {
     const d = new Date(currentWeekStart);
@@ -2414,7 +2405,7 @@ function updateDaysOfWeek() {
     
     // Sincroniza localidade customizada (data específica ou genérica histórica)
     const custom = customDestinations[dateStr] || customDestinations[shortNames[i]];
-    DAYS[i].dest = custom || defaults[i];
+    DAYS[i].dest = custom || '';
   }
 }
 
@@ -2836,7 +2827,7 @@ function renderSidebar() {
       <div class="day-dot" style="background:${d.color}"></div>
       <div class="day-info">
         <div class="day-name">${d.name} <span style="font-size:10px; color:var(--sub); font-weight:400">(${d.dateLabel})</span></div>
-        <div class="day-dest">${d.dest} · ${total > 0 ? done+'/'+total : '—'}</div>
+        <div class="day-dest">${d.dest ? d.dest + ' · ' : ''}${total > 0 ? done + '/' + total + ' tarefas' : 'Sem tarefas'}</div>
       </div>
       <div class="day-badge" style="color:${d.color};border:1px solid ${d.color}22;background:${d.color}11">
         ${d.special ? '⚡' : '📍'}
@@ -2920,7 +2911,7 @@ function setActiveDay(id) {
 
     document.getElementById('accentBar').style.background       = d.color;
     document.getElementById('dayTitle').textContent              = d.name;
-    document.getElementById('daySubtitle').textContent           = '📍 ' + d.dest;
+    document.getElementById('daySubtitle').textContent           = d.dest ? '📍 ' + d.dest : '📍 Sem localidade definida';
     document.getElementById('progressFill').style.background     = d.color;
     document.getElementById('progressPct').style.color           = d.color;
     const pill = document.getElementById('tipoPill');
