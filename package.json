@@ -10,7 +10,8 @@
     "cap:android": "npx cap open android",
     "cap:ios": "npx cap open ios",
     "cap:run:android": "npx cap run android",
-    "cap:run:ios": "npx cap run ios"
+    "cap:run:ios": "npx cap run ios",
+    "deploy": "node scripts/deploy.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
