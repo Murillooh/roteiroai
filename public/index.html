@@ -2252,6 +2252,88 @@ let _initialized = false;
 // Initialize dynamic days of week dates
 updateDaysOfWeek();
 
+// ── Deep Link Handler (Capacitor) ───────────────────────────────────────────
+function setupDeepLinks() {
+  if (isCapacitorApp && window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+    const App = window.Capacitor.Plugins.App;
+    
+    App.addListener('appUrlOpen', async (data) => {
+      console.log('Link de redirecionamento detectado:', data.url);
+      
+      // Fecha o navegador nativo se ele estiver aberto
+      if (window.Capacitor.Plugins.Browser) {
+        try {
+          await window.Capacitor.Plugins.Browser.close();
+        } catch (e) {
+          console.warn('Não foi possível fechar o navegador nativo:', e);
+        }
+      }
+      
+      if (data.url && data.url.includes('access_token')) {
+        try {
+          // Obtém os tokens do hash da URL
+          // com.roteiroai.app://login-callback#access_token=...&refresh_token=...
+          const hashIndex = data.url.indexOf('#');
+          if (hashIndex === -1) return;
+          
+          const hash = data.url.substring(hashIndex + 1);
+          const params = new URLSearchParams(hash);
+          
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          
+          if (accessToken && refreshToken) {
+            const preloader = document.getElementById('preloader');
+            const statusEl = document.getElementById('preloaderStatus');
+            const ringFill = document.getElementById('preloaderRingFill');
+            const barFill = document.getElementById('preloaderBarFill');
+            const pctEl = document.getElementById('preloaderPct');
+            
+            if (preloader) {
+              preloader.classList.remove('fade-out');
+              if (ringFill) ringFill.style.strokeDashoffset = 0;
+              if (barFill) barFill.style.width = '100%';
+              if (pctEl) pctEl.textContent = '100%';
+              if (statusEl) statusEl.textContent = 'Autenticando sessão...';
+            }
+            
+            const { error } = await _supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            
+            if (error) {
+              console.error('Erro ao definir sessão via deep link:', error);
+              alert('Erro de autenticação: ' + error.message);
+              if (preloader) preloader.classList.add('fade-out');
+            } else {
+              console.log('Sessão configurada com sucesso via deep link!');
+              
+              // Recarrega os dados e sessão
+              const user = await checkSession();
+              if (user) {
+                _initialized = true;
+                await Promise.all([
+                  loadDestinationsFromSupabase(user.id),
+                  loadTasksFromSupabase(user.id)
+                ]);
+                updateDaysOfWeek();
+                renderCalendar();
+                setActiveDay('dashboard');
+                if (preloader) preloader.classList.add('fade-out');
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Erro ao analisar os tokens do deep link:', err);
+        }
+      }
+    });
+  }
+}
+
+setupDeepLinks();
+
 function updateDaysOfWeek() {
   const shortNames = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
   const defaults = [
@@ -2303,14 +2385,44 @@ async function loginWithGoogle() {
     btn.style.opacity = '0.65';
     btn.textContent = 'Redirecionando para o Google...';
   }
-  const { error } = await _supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin + window.location.pathname,
-      queryParams: { prompt: 'select_account' }
+  
+  const redirectTo = isCapacitorApp 
+    ? 'com.roteiroai.app://login-callback' 
+    : window.location.origin + window.location.pathname;
+
+  try {
+    if (isCapacitorApp) {
+      // Fluxo Capacitor Mobile (Google OAuth com skipBrowserRedirect para abrir em navegador nativo)
+      const { data, error } = await _supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectTo,
+          skipBrowserRedirect: true,
+          queryParams: { prompt: 'select_account' }
+        }
+      });
+
+      if (error) throw error;
+
+      if (data && data.url) {
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Browser) {
+          await window.Capacitor.Plugins.Browser.open({ url: data.url });
+        } else {
+          window.open(data.url, '_system');
+        }
+      }
+    } else {
+      // Fluxo Web normal
+      const { error } = await _supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectTo,
+          queryParams: { prompt: 'select_account' }
+        }
+      });
+      if (error) throw error;
     }
-  });
-  if (error) {
+  } catch (error) {
     console.error('Erro no login Google:', error);
     if (btn) {
       btn.disabled = false;
