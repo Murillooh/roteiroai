@@ -2149,11 +2149,43 @@
       <span class="bottom-nav-icon">📊</span>
       <span class="bottom-nav-text">Dashboard</span>
     </button>
-    <button class="bottom-nav<script>
+    <button class="bottom-nav-btn" onclick="switchMobileView('chat')">
+      <span class="bottom-nav-icon">💬</span>
+      <span class="bottom-nav-text">Chat IA</span>
+    </button>
+  </nav>
+
+</div> <!-- Closes .app div -->
+
+<script>
 // ── Supabase Config ──────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://aozyeuhfqqnsrfkbrsre.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Pad-SAGpdApE85PEIU0ucw_BIfTK_7X';
-const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let _supabase;
+try {
+  if (typeof supabase !== 'undefined') {
+    _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    console.warn('Supabase SDK not loaded. Using fallback mock.');
+    _supabase = {
+      auth: {
+        getSession: async () => ({ data: { session: null } }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        signOut: async () => {}
+      },
+      from: () => ({
+        select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [] }) }) }),
+        insert: () => Promise.resolve({ data: null }),
+        update: () => Promise.resolve({ data: null }),
+        delete: () => Promise.resolve({ data: null }),
+        upsert: () => Promise.resolve({ data: null })
+      })
+    };
+  }
+} catch (e) {
+  console.error('Error initializing Supabase:', e);
+}
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const PRODUCTION_API_URL = 'https://roteiroai.vercel.app';
@@ -2247,16 +2279,21 @@ function updateDaysOfWeek() {
 
 // ── Auth Logic (Supabase) ─────────────────────────────────────────────────────
 async function checkSession() {
-  const { data: { session } } = await _supabase.auth.getSession();
-  if (session) {
-    currentUser = session.user;
-    document.body.classList.remove('logged-out');
-    return session.user;
-  } else {
-    currentUser = null;
-    document.body.classList.add('logged-out');
-    return null;
+  try {
+    if (!_supabase || !_supabase.auth) return null;
+    const { data: { session }, error } = await _supabase.auth.getSession();
+    if (error) throw error;
+    if (session) {
+      currentUser = session.user;
+      document.body.classList.remove('logged-out');
+      return session.user;
+    }
+  } catch (err) {
+    console.error('Erro ao verificar sessão:', err);
   }
+  currentUser = null;
+  document.body.classList.add('logged-out');
+  return null;
 }
 
 async function loginWithGoogle() {
@@ -3791,18 +3828,34 @@ window.addEventListener('DOMContentLoaded', async () => {
     'Tudo pronto!',
   ];
 
-  const user = await checkSession();
-
   let progress = 0;
-  const totalDuration = user ? 2000 : 2500;
   const interval      = 25;
-  const ticks         = totalDuration / interval;
-  const step          = 100 / ticks;
   let tick = 0;
+  let sessionChecked = false;
+  let user = null;
+
+  // Realiza a verificação de sessão em paralelo
+  checkSession().then(usr => {
+    user = usr;
+    sessionChecked = true;
+  }).catch(err => {
+    console.error('Falha ao verificar sessão no carregamento:', err);
+    sessionChecked = true;
+  });
 
   const timer = setInterval(() => {
     tick++;
-    progress = Math.min(100, Math.round(tick * step));
+    
+    // O progresso avança normalmente até 90%. Só vai para 100% quando a sessão terminar de checar.
+    const totalDuration = user ? 2000 : 2500;
+    const ticks = totalDuration / interval;
+    const step = 100 / ticks;
+    
+    let targetProgress = Math.min(100, Math.round(tick * step));
+    if (!sessionChecked && targetProgress > 90) {
+      targetProgress = 90;
+    }
+    progress = targetProgress;
 
     const offset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE;
     ringFill.style.strokeDashoffset = offset;
