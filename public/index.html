@@ -2647,6 +2647,35 @@ async function loadTasksFromSupabase(userId) {
   }
 }
 
+// ── Sincronização Periódica em Segundo Plano (Auto-Refresh) ───────────────────
+async function refreshTasksPeriodically() {
+  if (!currentUser) return;
+  try {
+    // Carrega destinos e tarefas em segundo plano do Supabase
+    await Promise.all([
+      loadDestinationsFromSupabase(currentUser.id),
+      loadTasksFromSupabase(currentUser.id)
+    ]);
+    
+    // Atualiza a interface com os novos dados
+    updateDaysOfWeek();
+    renderCalendar();
+    renderSidebar();
+    
+    if (activeDay === 'dashboard') {
+      renderDashboard();
+    } else {
+      renderTasks();
+    }
+    console.log('🔄 Sincronização periódica concluída com o Supabase.');
+  } catch (e) {
+    console.error('Erro na sincronização periódica:', e);
+  }
+}
+
+// Inicia o loop de sincronização automática a cada 1 minuto (60000ms)
+setInterval(refreshTasksPeriodically, 60000);
+
 // ── Auth State Change (trata retorno do OAuth do Google) ──────────────────────
 _supabase.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session && !_initialized) {
