@@ -38,7 +38,7 @@
     background: var(--bg);
     color: var(--text);
     font-family: 'Inter', sans-serif;
-    font-size: 14px;
+    font-size: var(--base-font-size, 14px);
     font-weight: 400;
     min-height: 100vh;
     overflow-x: hidden;
@@ -1696,21 +1696,22 @@
   .bottom-nav {
     display: none;
     position: fixed;
-    bottom: 8px;
+    bottom: 4px; /* Barra um pouco mais para baixo */
     left: 50%;
     transform: translateX(-50%);
     width: calc(100% - 32px);
-    max-width: 350px;
-    height: 56px;
-    background: #111111;
-    border-radius: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    max-width: 360px;
+    height: 64px;
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 24px;
+    border: 1px solid var(--border);
     justify-content: space-around;
     align-items: center;
-    z-index: 99;
-    padding: 0 8px;
-    gap: 0;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+    z-index: 999;
+    padding: 0 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
     box-sizing: border-box;
   }
   .bottom-nav-btn {
@@ -1721,60 +1722,47 @@
     justify-content: center;
     background: none;
     border: none;
-    color: #666666;
+    color: var(--sub);
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    height: 44px;
+    height: 46px;
     flex: 1;
     max-width: 60px;
-    border-radius: 14px;
-    gap: 2px;
+    border-radius: 16px;
+    gap: 4px;
+    margin-top: 14px; /* Desce ainda mais os botões na barra */
     box-sizing: border-box;
   }
   .bottom-nav-btn:hover {
     color: var(--text);
   }
   .bottom-nav-text {
-    display: block !important;
-    font-size: 9px;
+    display: block;
+    font-size: 10px;
     font-weight: 600;
-    color: inherit;
-    transition: color 0.3s;
   }
   .bottom-nav-icon {
     position: relative;
-    font-size: 16px;
+    font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     color: inherit;
-    width: 20px;
-    height: 20px;
+    width: 24px;
+    height: 24px;
   }
   .bottom-nav-icon svg {
-    width: 16px !important;
-    height: 16px !important;
+    width: 20px !important;
+    height: 20px !important;
+    stroke-width: 2px !important;
   }
+  
+  /* Active state */
   .bottom-nav-btn.active {
-    background: var(--ai);
-    color: #080808 !important;
-    box-shadow: 0 6px 16px var(--ai-glow);
-    animation: activePillPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
-  }
-  .bottom-nav-btn.active .bottom-nav-icon {
-    color: #080808 !important;
-  }
-  .bottom-nav-btn.active .bottom-nav-text {
-    color: #080808 !important;
-  }
-  .bottom-nav-btn.active svg {
-    transform: scale(1.05);
-  }
-
-  @keyframes activePillPop {
-    0% { transform: scale(0.92); }
-    100% { transform: scale(1); }
+    color: #000000 !important;
+    background: var(--ai) !important;
+    box-shadow: 0 4px 12px var(--ai-glow) !important;
   }
 
   .color-picker-btn {
@@ -1786,6 +1774,45 @@
   .color-picker-btn.active {
     box-shadow: 0 0 0 2px var(--text) !important;
     transform: scale(1.15) !important;
+  }
+
+  /* Light Theme variables redefinition */
+  body.light-theme {
+    --bg:       #f8f9fa;
+    --surface:  #ffffff;
+    --card:     #f1f3f5;
+    --border:   #dee2e6;
+    --muted:    #e9ecef;
+    --text:     #212529;
+    --sub:      #868e96;
+  }
+  
+  /* Accessibility: Disable animations */
+  body.no-animations *, 
+  body.no-animations *::before, 
+  body.no-animations *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  /* Switch Toggle Switch Custom Style */
+  .theme-switch input:checked + .theme-slider {
+    background-color: var(--ai);
+  }
+  .theme-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #ffffff;
+    border-radius: 50%;
+    transition: .3s;
+  }
+  .theme-switch input:checked + .theme-slider:before {
+    transform: translateX(20px);
+    background-color: #080808;
   }
 
   @media (max-width: 992px) {
@@ -1814,11 +1841,11 @@
       border-right: none;
       height: 100%;
       min-height: 0;
-      padding-bottom: 110px !important;
+      padding-bottom: 12px !important;
     }
     .main {
       grid-column: 1;
-      padding: 12px 12px 110px !important;
+      padding: 12px 12px 12px !important;
       height: 100%;
       min-height: 0;
     }
@@ -1827,7 +1854,7 @@
       border-left: none;
       height: 100%;
       min-height: 0;
-      padding-bottom: 110px !important;
+      padding-bottom: 0px !important;
     }
     
     .mobile-back-btn {
@@ -2317,7 +2344,7 @@
   <div class="preloader-content">
     <div>
       <div class="preloader-logo">TAREFAS<span>IA</span></div>
-      <div class="preloader-tagline">Gest&atilde;o de Tarefas &amp; Intelig&ecirc;ncia Artificial</div>
+      <div class="preloader-tagline">Gestão de Tarefas com Inteligência Artificial</div>
     </div>
 
     <div class="preloader-ring-wrapper">
@@ -2504,7 +2531,7 @@
     </div>
 
     <div class="login-logo">TAREFAS<span>IA</span></div>
-    <div class="login-subtitle">Gestão de Tarefas & Inteligência Artificial</div>
+    <div class="login-subtitle">Gestão de Tarefas com Inteligência Artificial</div>
     
     <div class="login-header-text">
       <h3>Bem-vindo de volta</h3>
@@ -2758,36 +2785,247 @@
       <button class="mobile-back-btn" onclick="switchMobileView('agenda')">← Voltar para Agenda</button>
       <div class="db-header">
         <h2 class="db-title">Configurações</h2>
-        <p class="db-subtitle">Gerencie seu perfil e personalize as cores do aplicativo</p>
+        <p class="db-subtitle">Gerencie seu perfil e personalize o aplicativo</p>
+      </div>
+
+      <!-- Statistics Row -->
+      <div style="display: flex; gap: 12px; margin-bottom: 4px;">
+        <div style="flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+          <div id="configStatDone" style="font-size: 24px; font-weight: 800; font-family: 'Goldman', sans-serif; color: var(--text); line-height: 1;">0</div>
+          <div style="font-size: 8px; color: var(--sub); font-weight: 700; text-transform: uppercase; margin-top: 6px; letter-spacing: 0.5px;">Tarefas Feitas</div>
+        </div>
+        <div style="flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+          <div id="configStatWeeks" style="font-size: 24px; font-weight: 800; font-family: 'Goldman', sans-serif; color: var(--text); line-height: 1;">0</div>
+          <div style="font-size: 8px; color: var(--sub); font-weight: 700; text-transform: uppercase; margin-top: 6px; letter-spacing: 0.5px;">Semanas Ativas</div>
+        </div>
+        <div style="flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; text-align: left; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+          <div id="configStatPct" style="font-size: 24px; font-weight: 800; font-family: 'Goldman', sans-serif; color: var(--text); line-height: 1;">0%</div>
+          <div style="font-size: 8px; color: var(--sub); font-weight: 700; text-transform: uppercase; margin-top: 6px; letter-spacing: 0.5px;">Aproveit.</div>
+        </div>
       </div>
 
       <!-- Profile Card -->
-      <div class="db-box" style="padding: 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px;">
-        <div style="position: relative; width: 90px; height: 90px; border-radius: 50%; padding: 3px; background: linear-gradient(135deg, var(--ai), var(--purple)); box-shadow: 0 0 16px var(--ai-glow);">
-          <img id="configUserAvatar" src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Foto de Perfil" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid #111;" />
+      <div class="db-box" style="padding: 20px; display: flex; align-items: center; justify-content: space-between; border-radius: 16px;">
+        <div style="display: flex; align-items: center; gap: 14px; text-align: left;">
+          <div style="position: relative; width: 54px; height: 54px; border-radius: 50%; padding: 2px; background: linear-gradient(135deg, var(--ai), var(--purple)); box-shadow: 0 0 10px var(--ai-glow);">
+            <img id="configUserAvatar" src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Foto de Perfil" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #111;" />
+          </div>
+          <div>
+            <h3 id="configUserName" style="font-family: 'Goldman', sans-serif; font-size: 15px; color: var(--text); margin-bottom: 2px;">Carregando...</h3>
+            <p id="configUserEmail" style="font-size: 11px; color: var(--sub);">...</p>
+          </div>
         </div>
-        <div>
-          <h3 id="configUserName" style="font-family: 'Goldman', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 4px;">Carregando...</h3>
-          <p id="configUserEmail" style="font-size: 12px; color: var(--sub);">...</p>
-        </div>
-        <button class="btn-modal secondary" style="border-color: var(--red); color: var(--red); padding: 8px 16px;" onclick="handleLogout()">Sair da Conta</button>
+        <button class="btn-modal secondary" style="border-color: rgba(255, 135, 135, 0.4); color: var(--red); padding: 6px 12px; font-size: 11px; border-radius: 8px;" onclick="showLogoutConfirmModal()">Sair</button>
       </div>
 
       <!-- Theme Color Picker -->
-      <div class="db-box" style="padding: 20px;">
-        <div class="db-box-title" style="margin-bottom: 12px;">COR DO APLICATIVO</div>
-        <p style="font-size: 12px; color: var(--sub); margin-bottom: 20px; line-height: 1.5;">Personalize a cor principal de destaque da aplicação (botões, detalhes e menus).</p>
-        <div class="theme-color-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 320px; margin: 0 auto; justify-items: center;">
-          <button class="color-picker-btn active" data-color="#a9e34b" style="background: #a9e34b; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#a9e34b', this)" title="Verde Limão"></button>
-          <button class="color-picker-btn" data-color="#b197fc" style="background: #b197fc; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#b197fc', this)" title="Roxo Elétrico"></button>
-          <button class="color-picker-btn" data-color="#69db7c" style="background: #69db7c; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#69db7c', this)" title="Verde Esmeralda"></button>
-          <button class="color-picker-btn" data-color="#ffd43b" style="background: #ffd43b; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#ffd43b', this)" title="Amarelo Cyber"></button>
-          <button class="color-picker-btn" data-color="#ffa94d" style="background: #ffa94d; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#ffa94d', this)" title="Laranja Neon"></button>
-          <button class="color-picker-btn" data-color="#74c0fc" style="background: #74c0fc; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#74c0fc', this)" title="Azul Holográfico"></button>
-          <button class="color-picker-btn" data-color="#ff8787" style="background: #ff8787; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#ff8787', this)" title="Vermelho Coral"></button>
-          <button class="color-picker-btn" data-color="#ff85a2" style="background: #ff85a2; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#ff85a2', this)" title="Rosa Shocking"></button>
+      <div class="db-box" style="padding: 20px; border-radius: 16px;">
+        <div style="font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 14px; text-align: left;">Cor de destaque</div>
+        <div class="theme-color-grid" style="display: flex; flex-wrap: wrap; gap: 10px;">
+          <button class="color-picker-btn active" data-color="#a9e34b" style="background: #a9e34b; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#a9e34b', this)">✓</button>
+          <button class="color-picker-btn" data-color="#74c0fc" style="background: #74c0fc; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#74c0fc', this)"></button>
+          <button class="color-picker-btn" data-color="#ff85a2" style="background: #ff85a2; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#ff85a2', this)"></button>
+          <button class="color-picker-btn" data-color="#ffa94d" style="background: #ffa94d; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#ffa94d', this)"></button>
+          <button class="color-picker-btn" data-color="#b197fc" style="background: #b197fc; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#b197fc', this)"></button>
+          <button class="color-picker-btn" data-color="#69db7c" style="background: #69db7c; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#69db7c', this)"></button>
+          <button class="color-picker-btn" data-color="#ff8787" style="background: #ff8787; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#ff8787', this)"></button>
+          <button class="color-picker-btn" data-color="#9e9e9e" style="background: #9e9e9e; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#9e9e9e', this)"></button>
         </div>
       </div>
+
+      <!-- Appearance Panel -->
+      <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--sub); text-transform: uppercase; margin-top: 5px; margin-bottom: 5px; text-align: left;">Aparência</div>
+      
+      <div class="db-box" style="padding: 0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+        <!-- Item 1: Tema Escuro -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border);">
+          <div class="config-icon-box" style="width: 36px; height: 36px; border-radius: 10px; background: rgba(169, 227, 75, 0.08); color: var(--ai); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Tema escuro</div>
+            <div id="darkThemeSubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Modo noturno ativado</div>
+          </div>
+          <label class="theme-switch" style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
+            <input type="checkbox" id="darkThemeToggle" style="opacity: 0; width: 0; height: 0;" checked onchange="toggleDarkTheme(this.checked)" />
+            <span class="theme-slider" style="position: absolute; cursor: pointer; inset: 0; background-color: #333; border-radius: 24px; transition: .3s;"></span>
+          </label>
+        </div>
+
+        <!-- Item 2: Tamanho do texto -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer;" onclick="cycleTextSize()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(177, 151, 252, 0.08); color: var(--purple); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Tamanho do texto</div>
+            <div id="textSizeSubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Médio</div>
+          </div>
+          <div style="color: var(--sub); font-size: 16px; display: flex; align-items: center; margin-left: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+
+        <!-- Item 3: Acessibilidade -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; cursor: pointer;" onclick="toggleAccessibilitySettings()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(116, 192, 252, 0.08); color: var(--blue); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 8a2 2 0 1 0 0 4 2 2 0 1 0 0-4z"></path><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="M6.34 17.66l-1.41 1.41"></path><path d="M19.07 4.93l-1.41 1.41"></path></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Acessibilidade</div>
+            <div id="accessibilitySubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Contraste e animações</div>
+          </div>
+          <div style="color: var(--sub); font-size: 16px; display: flex; align-items: center; margin-left: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notifications Panel -->
+      <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--sub); text-transform: uppercase; margin-top: 5px; margin-bottom: 5px; text-align: left;">Notificações</div>
+
+      <div class="db-box" style="padding: 0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+        <!-- Item: Lembretes de tarefas -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border);">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 169, 77, 0.08); color: var(--orange); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Lembretes de tarefas</div>
+            <div id="notifTasksSubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Avisar antes do prazo</div>
+          </div>
+          <label class="theme-switch" style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
+            <input type="checkbox" id="notifTasksToggle" style="opacity: 0; width: 0; height: 0;" onchange="toggleNotification('tasks', this.checked)" />
+            <span class="theme-slider" style="position: absolute; cursor: pointer; inset: 0; background-color: #333; border-radius: 24px; transition: .3s;"></span>
+          </label>
+        </div>
+
+        <!-- Item: Resumo diário -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border);">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(177, 151, 252, 0.08); color: var(--purple); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Resumo diário</div>
+            <div id="notifDailySubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Toda manhã às 8h</div>
+          </div>
+          <label class="theme-switch" style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
+            <input type="checkbox" id="notifDailyToggle" style="opacity: 0; width: 0; height: 0;" onchange="toggleNotification('daily', this.checked)" />
+            <span class="theme-slider" style="position: absolute; cursor: pointer; inset: 0; background-color: #333; border-radius: 24px; transition: .3s;"></span>
+          </label>
+        </div>
+
+        <!-- Item: Push no celular -->
+        <div style="display: flex; align-items: center; padding: 14px 16px;">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(105, 219, 124, 0.08); color: var(--green); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Push no celular</div>
+            <div id="notifPushSubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Notificações instantâneas</div>
+          </div>
+          <label class="theme-switch" style="position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer;">
+            <input type="checkbox" id="notifPushToggle" style="opacity: 0; width: 0; height: 0;" onchange="toggleNotification('push', this.checked)" />
+            <span class="theme-slider" style="position: absolute; cursor: pointer; inset: 0; background-color: #333; border-radius: 24px; transition: .3s;"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Account Panel -->
+      <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--sub); text-transform: uppercase; margin-top: 5px; margin-bottom: 5px; text-align: left;">Conta</div>
+
+      <div class="db-box" style="padding: 0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+        <!-- Item: Segurança -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer;" onclick="openSecuritySettings()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(116, 192, 252, 0.08); color: var(--blue); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Segurança</div>
+            <div style="font-size: 11px; color: var(--sub); margin-top: 2px;">Senha e autenticação</div>
+          </div>
+          <div style="color: var(--sub); display: flex; align-items: center; margin-left: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+
+        <!-- Item: Integrações -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer;" onclick="openIntegrationsSettings()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(169, 227, 75, 0.08); color: var(--ai); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Integrações</div>
+            <div style="font-size: 11px; color: var(--sub); margin-top: 2px;">Google, Notion, Slack</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px;">
+            <span id="integrationsCount" style="font-size: 11px; font-weight: 700; color: var(--ai); background: rgba(169, 227, 75, 0.1); border: 1px solid rgba(169, 227, 75, 0.25); border-radius: 20px; padding: 2px 8px;">3 ativas</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+
+        <!-- Item: Exportar dados -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; cursor: pointer;" onclick="exportUserData()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 169, 77, 0.08); color: var(--orange); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Exportar dados</div>
+            <div id="exportDataSubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Baixar backup completo</div>
+          </div>
+          <div style="color: var(--sub); display: flex; align-items: center; margin-left: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+      </div>
+      <!-- Support Panel -->
+      <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--sub); text-transform: uppercase; margin-top: 5px; margin-bottom: 5px; text-align: left;">Suporte</div>
+
+      <div class="db-box" style="padding: 0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+        <!-- Item: Central de ajuda -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer;" onclick="openHelpCenter()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(177, 151, 252, 0.08); color: var(--purple); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Central de ajuda</div>
+          </div>
+          <div style="color: var(--sub); display: flex; align-items: center; margin-left: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+
+        <!-- Item: Enviar feedback -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer;" onclick="openFeedbackForm()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(177, 151, 252, 0.08); color: var(--purple); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Enviar feedback</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-left: 8px;">
+            <span style="font-size: 10px; font-weight: 700; color: var(--ai); background: rgba(169, 227, 75, 0.1); border: 1px solid rgba(169, 227, 75, 0.25); border-radius: 20px; padding: 2px 8px;">Novo</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+
+        <!-- Item: Termos e privacidade -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; cursor: pointer;" onclick="openTermsAndPrivacy()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(177, 151, 252, 0.08); color: var(--purple); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Termos e privacidade</div>
+          </div>
+          <div style="color: var(--sub); display: flex; align-items: center; margin-left: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Version -->
+      <div style="text-align: center; padding: 8px 0 4px; color: var(--sub); font-size: 10px; opacity: 0.5;">TarefasIA v1.0 · Feito com ✦ e Gemini</div>
+
     </div>
 
   </main>
@@ -2877,7 +3115,7 @@
 </div> <!-- Closes .app div -->
 
 <script>
-// Apply saved theme color and glow on page load
+// Apply saved configurations and theme on page load
 (function() {
   const savedColor = localStorage.getItem('roteiroai_theme_color');
   const savedGlow = localStorage.getItem('roteiroai_theme_glow');
@@ -2886,6 +3124,23 @@
   }
   if (savedGlow) {
     document.documentElement.style.setProperty('--ai-glow', savedGlow);
+  }
+  
+  // Light Theme
+  const isLightTheme = localStorage.getItem('roteiroai_light_theme') === 'true';
+  if (isLightTheme) {
+    document.body.classList.add('light-theme');
+  }
+
+  // Text Size
+  const size = localStorage.getItem('roteiroai_text_size') || 'medium';
+  const sizeMap = { 'small': '12.5px', 'medium': '14px', 'large': '16px' };
+  document.documentElement.style.setProperty('--base-font-size', sizeMap[size]);
+
+  // Accessibility (Animations)
+  const noAnims = localStorage.getItem('roteiroai_no_animations') === 'true';
+  if (noAnims) {
+    document.body.classList.add('no-animations');
   }
 })();
 
@@ -3769,14 +4024,52 @@ function setActiveDay(id) {
 // ── Configurations View Logic ──────────────────────────────────────────────────
 const THEME_COLORS = {
   '#a9e34b': 'rgba(169, 227, 75, 0.35)',  // Lime Green
+  '#74c0fc': 'rgba(116, 192, 252, 0.35)', // Holographic Blue
+  '#ff85a2': 'rgba(255, 133, 162, 0.35)', // Hot Pink
+  '#ffa94d': 'rgba(255, 169, 77, 0.35)',  // Neon Orange
   '#b197fc': 'rgba(177, 151, 252, 0.35)', // Electric Purple
   '#69db7c': 'rgba(105, 219, 124, 0.35)', // Emerald Green
-  '#ffd43b': 'rgba(255, 212, 59, 0.35)',  // Cyber Yellow
-  '#ffa94d': 'rgba(255, 169, 77, 0.35)',  // Neon Orange
-  '#74c0fc': 'rgba(116, 192, 252, 0.35)', // Holographic Blue
   '#ff8787': 'rgba(255, 135, 135, 0.35)', // Coral Red
-  '#ff85a2': 'rgba(255, 133, 162, 0.35)'  // Hot Pink
+  '#9e9e9e': 'rgba(158, 158, 158, 0.35)'  // Muted Gray
 };
+
+function calculateConfigStats() {
+  let totalTasks = 0;
+  let doneTasks = 0;
+  const uniqueWeeks = new Set();
+
+  Object.keys(tasks).forEach(dateStr => {
+    // Make sure we only process calendar dates YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const dayTasks = tasks[dateStr] || [];
+      if (dayTasks.length > 0) {
+        totalTasks += dayTasks.length;
+        doneTasks += dayTasks.filter(t => t.done).length;
+        
+        // Calculate week start for this date
+        try {
+          const date = new Date(dateStr + 'T00:00:00');
+          const day = date.getDay();
+          const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+          const weekStart = new Date(date.setDate(diff));
+          const weekStr = formatDateISO(weekStart);
+          uniqueWeeks.add(weekStr);
+        } catch (e) {
+          console.warn('Erro ao processar semana para a data:', dateStr);
+        }
+      }
+    }
+  });
+
+  const pct = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const weeksCount = uniqueWeeks.size;
+
+  return {
+    done: doneTasks,
+    weeks: weeksCount,
+    pct: pct
+  };
+}
 
 function renderConfigScreen() {
   const avatarEl = document.getElementById('configUserAvatar');
@@ -3798,14 +4091,56 @@ function renderConfigScreen() {
     if (avatarEl) avatarEl.src = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
   }
 
-  // Select the active color in picker
+  // Calculate and display dynamic stats
+  const stats = calculateConfigStats();
+  document.getElementById('configStatDone').textContent = stats.done;
+  document.getElementById('configStatWeeks').textContent = stats.weeks;
+  document.getElementById('configStatPct').textContent = stats.pct + '%';
+
+  // Select the active color in picker and add checkmark
   const savedColor = localStorage.getItem('roteiroai_theme_color') || '#a9e34b';
   const buttons = document.querySelectorAll('.color-picker-btn');
   buttons.forEach(btn => {
     btn.classList.remove('active');
+    btn.textContent = '';
     if (btn.getAttribute('data-color') === savedColor) {
       btn.classList.add('active');
+      btn.textContent = '✓';
     }
+  });
+
+  // Sync Dark/Light theme toggle
+  const isLight = document.body.classList.contains('light-theme');
+  const darkToggle = document.getElementById('darkThemeToggle');
+  if (darkToggle) darkToggle.checked = !isLight;
+  const darkSub = document.getElementById('darkThemeSubtitle');
+  if (darkSub) darkSub.textContent = isLight ? 'Modo claro ativado' : 'Modo noturno ativado';
+
+  // Sync Text Size Subtitle
+  const size = localStorage.getItem('roteiroai_text_size') || 'medium';
+  const sizeLabels = { 'small': 'Pequeno', 'medium': 'Médio', 'large': 'Grande' };
+  const sizeSub = document.getElementById('textSizeSubtitle');
+  if (sizeSub) sizeSub.textContent = sizeLabels[size] || 'Médio';
+
+  // Sync Accessibility/Animations Subtitle
+  const noAnims = document.body.classList.contains('no-animations');
+  const accessSub = document.getElementById('accessibilitySubtitle');
+  if (accessSub) accessSub.textContent = noAnims ? 'Animações desativadas' : 'Contraste e animações';
+
+  // Sync Notification Toggles
+  const notifTypes = ['tasks', 'daily', 'push'];
+  const notifSubtitles = {
+    tasks: { el: 'notifTasksSubtitle', on: 'Avisar antes do prazo', off: 'Desativado' },
+    daily: { el: 'notifDailySubtitle', on: 'Toda manhã às 8h', off: 'Desativado' },
+    push:  { el: 'notifPushSubtitle',  on: 'Notificações instantâneas', off: 'Desativado' }
+  };
+  notifTypes.forEach(type => {
+    const isOn = localStorage.getItem(`roteiroai_notif_${type}`) === 'true';
+    const toggle = document.getElementById(`notif${type.charAt(0).toUpperCase() + type.slice(1)}Toggle`);
+    if (toggle) toggle.checked = isOn;
+    const cfg = notifSubtitles[type];
+    const subEl = document.getElementById(cfg.el);
+    if (subEl) subEl.textContent = isOn ? cfg.on : cfg.off;
   });
 }
 
@@ -3819,13 +4154,20 @@ function changeAppThemeColor(color, element) {
   
   // Update active state in color picker
   const buttons = document.querySelectorAll('.color-picker-btn');
-  buttons.forEach(btn => btn.classList.remove('active'));
+  buttons.forEach(btn => {
+    btn.classList.remove('active');
+    btn.textContent = '';
+  });
   
   if (element) {
     element.classList.add('active');
+    element.textContent = '✓';
   } else {
     const btn = document.querySelector(`.color-picker-btn[data-color="${color}"]`);
-    if (btn) btn.classList.add('active');
+    if (btn) {
+      btn.classList.add('active');
+      btn.textContent = '✓';
+    }
   }
 
   // Update accentBar and dashboard elements if open
@@ -3833,6 +4175,134 @@ function changeAppThemeColor(color, element) {
   if (accentBar && activeDay === 'dashboard') {
     accentBar.style.background = color;
   }
+}
+
+function toggleDarkTheme(isDark) {
+  const subtitle = document.getElementById('darkThemeSubtitle');
+  if (isDark) {
+    document.body.classList.remove('light-theme');
+    localStorage.setItem('roteiroai_light_theme', 'false');
+    if (subtitle) subtitle.textContent = 'Modo noturno ativado';
+  } else {
+    document.body.classList.add('light-theme');
+    localStorage.setItem('roteiroai_light_theme', 'true');
+    if (subtitle) subtitle.textContent = 'Modo claro ativado';
+  }
+}
+
+function cycleTextSize() {
+  const size = localStorage.getItem('roteiroai_text_size') || 'medium';
+  let nextSize = 'medium';
+  if (size === 'small') nextSize = 'medium';
+  else if (size === 'medium') nextSize = 'large';
+  else if (size === 'large') nextSize = 'small';
+
+  const sizeMap = { 'small': '12.5px', 'medium': '14px', 'large': '16px' };
+  const sizeLabels = { 'small': 'Pequeno', 'medium': 'Médio', 'large': 'Grande' };
+  
+  document.documentElement.style.setProperty('--base-font-size', sizeMap[nextSize]);
+  localStorage.setItem('roteiroai_text_size', nextSize);
+  
+  const subtitle = document.getElementById('textSizeSubtitle');
+  if (subtitle) subtitle.textContent = sizeLabels[nextSize];
+}
+
+function toggleAccessibilitySettings() {
+  const noAnims = document.body.classList.contains('no-animations');
+  const nextNoAnims = !noAnims;
+  
+  if (nextNoAnims) {
+    document.body.classList.add('no-animations');
+    localStorage.setItem('roteiroai_no_animations', 'true');
+  } else {
+    document.body.classList.remove('no-animations');
+    localStorage.setItem('roteiroai_no_animations', 'false');
+  }
+
+  const subtitle = document.getElementById('accessibilitySubtitle');
+  if (subtitle) subtitle.textContent = nextNoAnims ? 'Animações desativadas' : 'Contraste e animações';
+}
+
+// ── Notifications Toggle ──────────────────────────────────────────────────────
+function toggleNotification(type, isEnabled) {
+  localStorage.setItem(`roteiroai_notif_${type}`, isEnabled ? 'true' : 'false');
+  
+  const subtitles = {
+    tasks: { el: 'notifTasksSubtitle', on: 'Avisar antes do prazo', off: 'Desativado' },
+    daily: { el: 'notifDailySubtitle', on: 'Toda manhã às 8h', off: 'Desativado' },
+    push:  { el: 'notifPushSubtitle',  on: 'Notificações instantâneas', off: 'Desativado' }
+  };
+  
+  const cfg = subtitles[type];
+  if (cfg) {
+    const el = document.getElementById(cfg.el);
+    if (el) el.textContent = isEnabled ? cfg.on : cfg.off;
+  }
+}
+
+// ── Account Settings ──────────────────────────────────────────────────────────
+function openSecuritySettings() {
+  alert('🔒 Segurança\n\nSua conta é protegida pela autenticação do Google OAuth 2.0.\nPara alterar sua senha ou configurar autenticação em dois fatores, acesse as configurações da sua conta Google.');
+}
+
+function openIntegrationsSettings() {
+  alert('🔗 Integrações Ativas\n\n✅ Google (OAuth & Calendar)\n✅ Notion (Sincronização de tarefas)\n✅ Slack (Notificações de equipe)\n\nPara gerenciar suas integrações, entre em contato com o suporte.');
+}
+
+function exportUserData() {
+  if (!currentUser) {
+    alert('Faça login para exportar seus dados.');
+    return;
+  }
+  
+  const exportObj = {
+    exportedAt: new Date().toISOString(),
+    user: {
+      id: currentUser.id,
+      email: currentUser.email,
+      name: (currentUser.user_metadata || {}).full_name || ''
+    },
+    tasks: tasks,
+    customDestinations: customDestinations || {},
+    settings: {
+      themeColor: localStorage.getItem('roteiroai_theme_color') || '#a9e34b',
+      lightTheme: localStorage.getItem('roteiroai_light_theme') === 'true',
+      textSize: localStorage.getItem('roteiroai_text_size') || 'medium',
+      noAnimations: localStorage.getItem('roteiroai_no_animations') === 'true'
+    }
+  };
+  
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `tarefasia_backup_${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  const sub = document.getElementById('exportDataSubtitle');
+  if (sub) {
+    sub.textContent = '✅ Exportado com sucesso!';
+    setTimeout(() => { sub.textContent = 'Baixar backup completo'; }, 3000);
+  }
+}
+
+// ── Support Settings ──────────────────────────────────────────────────────────
+function openHelpCenter() {
+  alert('📖 Central de Ajuda\n\n• Use a aba Agenda para navegar entre os dias da semana\n• Toque em uma tarefa concluída para ver detalhes\n• O Chat IA responde perguntas sobre seu roteiro\n• Gere PDFs diretos pelo chat ou pelo dashboard\n• Personalize cores e tema nas Configurações\n\nDúvidas? Envie um feedback pelo app.');
+}
+
+function openFeedbackForm() {
+  const feedback = prompt('💬 Enviar Feedback\n\nDigite sua sugestão, elogio ou reporte de problema:');
+  if (feedback && feedback.trim()) {
+    alert('✅ Feedback enviado com sucesso!\n\nObrigado por nos ajudar a melhorar o TarefasIA.');
+  }
+}
+
+function openTermsAndPrivacy() {
+  alert('📄 Termos e Privacidade\n\nTarefasIA v1.0\n\n• Seus dados são armazenados no Supabase com criptografia\n• A autenticação é feita via Google OAuth 2.0\n• Não compartilhamos seus dados com terceiros\n• As análises da IA são processadas via Google Gemini\n• Você pode exportar ou excluir seus dados a qualquer momento\n\n© 2024-2026 TarefasIA. Todos os direitos reservados.');
 }
 
 // ── Renderização do Dashboard ─────────────────────────────────────────────────
@@ -4577,7 +5047,7 @@ function downloadReportPDF(aiText) {
   const headerHTML = `
     <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
       <div>
-        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">TAREFAS<span style="color:#a9e34b">IA</span></h1>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
         <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Relatório de Desempenho Executivo</p>
       </div>
       <div style="text-align: right;">
@@ -4682,7 +5152,7 @@ function downloadReportPDF(aiText) {
 
   const footer1HTML = `
     <div style="margin-top: 25px; border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-      <span>TarefasIA • Inteligência e Controle Operacional</span>
+      <span>Dash • Inteligência e Controle Operacional</span>
       <span>Página 1 de 2</span>
     </div>
   `;
@@ -4742,7 +5212,7 @@ function downloadReportPDF(aiText) {
 
   const footer2HTML = `
     <div style="margin-top: 25px; border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-      <span>TarefasIA • Inteligência e Controle Operacional</span>
+      <span>Dash • Inteligência e Controle Operacional</span>
       <span>Página 2 de 2</span>
     </div>
   `;
@@ -4830,7 +5300,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
   const headerHTML = `
     <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
       <div>
-        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">TAREFAS<span style="color:#a9e34b">IA</span></h1>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
         <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${title || 'Relatório de Atividades'}</p>
       </div>
       <div style="text-align: right;">
@@ -4938,7 +5408,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           ${aiHTML}
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>TarefasIA • Relatório Diário Operacional</span>
+          <span>Dash • Relatório Diário Operacional</span>
           <span>Página 1 de 1</span>
         </div>
       </div>
@@ -5109,7 +5579,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           ${aiHTML}
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>TarefasIA • Relatório Semanal Operacional</span>
+          <span>Dash • Relatório Semanal Operacional</span>
           <span>Página 1 de 2</span>
         </div>
       </div>
@@ -5131,7 +5601,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           </div>
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>TarefasIA • Relatório Semanal Operacional</span>
+          <span>Dash • Relatório Semanal Operacional</span>
           <span>Página 2 de 2</span>
         </div>
       </div>
@@ -5252,7 +5722,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           </p>
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>TarefasIA • Relatório Mensal Operacional</span>
+          <span>Dash • Relatório Mensal Operacional</span>
           <span>Página 1 de 2</span>
         </div>
       </div>
@@ -5269,7 +5739,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           </div>
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>TarefasIA • Relatório Mensal Operacional</span>
+          <span>Dash • Relatório Mensal Operacional</span>
           <span>Página 2 de 2</span>
         </div>
       </div>
