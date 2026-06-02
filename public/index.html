@@ -30,6 +30,7 @@
     --blue:     #74c0fc;
     --red:      #ff8787;
     --ai:       #a9e34b;
+    --ai-glow:  rgba(169, 227, 75, 0.35);
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -494,7 +495,7 @@
   }
   .ai-send {
     background: var(--ai);
-    border: 1px solid rgba(169, 227, 75, 0.2);
+    border: none;
     border-radius: 10px;
     color: #080808;
     width: 40px;
@@ -505,16 +506,16 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(169, 227, 75, 0.1);
+    box-shadow: 0 2px 4px var(--ai-glow);
   }
   .ai-send:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(169, 227, 75, 0.3);
-    background: #bbf25c;
+    box-shadow: 0 4px 12px var(--ai-glow);
+    filter: brightness(1.1);
   }
   .ai-send:active:not(:disabled) {
     transform: translateY(0) scale(0.95);
-    box-shadow: 0 1px 2px rgba(169, 227, 75, 0.1);
+    box-shadow: 0 1px 2px var(--ai-glow);
   }
   .ai-send:disabled {
     opacity: 0.35;
@@ -540,9 +541,9 @@
   .ai-mic:hover:not(.listening) {
     border-color: var(--ai);
     color: var(--ai);
-    background: rgba(169, 227, 75, 0.04);
+    background: rgba(255, 255, 255, 0.05);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(169, 227, 75, 0.1);
+    box-shadow: 0 4px 12px var(--ai-glow);
   }
   .ai-mic:active:not(.listening) {
     transform: translateY(0) scale(0.95);
@@ -1699,7 +1700,7 @@
     left: 50%;
     transform: translateX(-50%);
     width: calc(100% - 32px);
-    max-width: 320px;
+    max-width: 350px;
     height: 56px;
     background: #111111;
     border-radius: 20px;
@@ -1725,7 +1726,7 @@
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     height: 44px;
     flex: 1;
-    max-width: 70px;
+    max-width: 60px;
     border-radius: 14px;
     gap: 2px;
     box-sizing: border-box;
@@ -1758,7 +1759,7 @@
   .bottom-nav-btn.active {
     background: var(--ai);
     color: #080808 !important;
-    box-shadow: 0 6px 16px rgba(169, 227, 75, 0.35);
+    box-shadow: 0 6px 16px var(--ai-glow);
     animation: activePillPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
   }
   .bottom-nav-btn.active .bottom-nav-icon {
@@ -1774,6 +1775,17 @@
   @keyframes activePillPop {
     0% { transform: scale(0.92); }
     100% { transform: scale(1); }
+  }
+
+  .color-picker-btn {
+    box-sizing: border-box;
+  }
+  .color-picker-btn:hover {
+    transform: scale(1.15) !important;
+  }
+  .color-picker-btn.active {
+    box-shadow: 0 0 0 2px var(--text) !important;
+    transform: scale(1.15) !important;
   }
 
   @media (max-width: 992px) {
@@ -1901,6 +1913,35 @@
     }
     body[data-mobile-view="chat"] .ai-panel {
       display: flex !important;
+    }
+
+    /* Config View Mobile Control */
+    body[data-mobile-view="agenda"] #configView,
+    body[data-mobile-view="tasks"] #configView,
+    body[data-mobile-view="dashboard"] #configView,
+    body[data-mobile-view="search"] #configView {
+      display: none !important;
+    }
+    body[data-mobile-view="config"] .sidebar {
+      display: none !important;
+    }
+    body[data-mobile-view="config"] .main {
+      display: flex !important;
+    }
+    body[data-mobile-view="config"] #dailyView {
+      display: none !important;
+    }
+    body[data-mobile-view="config"] #dashboardView {
+      display: none !important;
+    }
+    body[data-mobile-view="config"] #searchView {
+      display: none !important;
+    }
+    body[data-mobile-view="config"] #configView {
+      display: flex !important;
+    }
+    body[data-mobile-view="config"] .ai-panel {
+      display: none !important;
     }
 
     /* Adjust charts and middle grid for mobile */
@@ -2712,6 +2753,43 @@
       </div>
     </div>
 
+    <!-- Configurations View Container -->
+    <div id="configView" style="display:none; flex-direction:column; gap:20px;" class="dashboard-container">
+      <button class="mobile-back-btn" onclick="switchMobileView('agenda')">← Voltar para Agenda</button>
+      <div class="db-header">
+        <h2 class="db-title">Configurações</h2>
+        <p class="db-subtitle">Gerencie seu perfil e personalize as cores do aplicativo</p>
+      </div>
+
+      <!-- Profile Card -->
+      <div class="db-box" style="padding: 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px;">
+        <div style="position: relative; width: 90px; height: 90px; border-radius: 50%; padding: 3px; background: linear-gradient(135deg, var(--ai), var(--purple)); box-shadow: 0 0 16px var(--ai-glow);">
+          <img id="configUserAvatar" src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Foto de Perfil" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid #111;" />
+        </div>
+        <div>
+          <h3 id="configUserName" style="font-family: 'Goldman', sans-serif; font-size: 18px; color: var(--text); margin-bottom: 4px;">Carregando...</h3>
+          <p id="configUserEmail" style="font-size: 12px; color: var(--sub);">...</p>
+        </div>
+        <button class="btn-modal secondary" style="border-color: var(--red); color: var(--red); padding: 8px 16px;" onclick="handleLogout()">Sair da Conta</button>
+      </div>
+
+      <!-- Theme Color Picker -->
+      <div class="db-box" style="padding: 20px;">
+        <div class="db-box-title" style="margin-bottom: 12px;">COR DO APLICATIVO</div>
+        <p style="font-size: 12px; color: var(--sub); margin-bottom: 20px; line-height: 1.5;">Personalize a cor principal de destaque da aplicação (botões, detalhes e menus).</p>
+        <div class="theme-color-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; max-width: 320px; margin: 0 auto; justify-items: center;">
+          <button class="color-picker-btn active" data-color="#a9e34b" style="background: #a9e34b; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#a9e34b', this)" title="Verde Limão"></button>
+          <button class="color-picker-btn" data-color="#b197fc" style="background: #b197fc; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#b197fc', this)" title="Roxo Elétrico"></button>
+          <button class="color-picker-btn" data-color="#69db7c" style="background: #69db7c; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#69db7c', this)" title="Verde Esmeralda"></button>
+          <button class="color-picker-btn" data-color="#ffd43b" style="background: #ffd43b; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#ffd43b', this)" title="Amarelo Cyber"></button>
+          <button class="color-picker-btn" data-color="#ffa94d" style="background: #ffa94d; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#ffa94d', this)" title="Laranja Neon"></button>
+          <button class="color-picker-btn" data-color="#74c0fc" style="background: #74c0fc; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#74c0fc', this)" title="Azul Holográfico"></button>
+          <button class="color-picker-btn" data-color="#ff8787" style="background: #ff8787; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#ff8787', this)" title="Vermelho Coral"></button>
+          <button class="color-picker-btn" data-color="#ff85a2" style="background: #ff85a2; width: 44px; height: 44px; border-radius: 50%; border: 3px solid #111; box-shadow: 0 0 0 1px var(--border); cursor: pointer; transition: all 0.2s;" onclick="changeAppThemeColor('#ff85a2', this)" title="Rosa Shocking"></button>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <!-- AI PANEL -->
@@ -2788,11 +2866,29 @@
       </span>
       <span class="bottom-nav-text">Chat</span>
     </button>
+    <button class="bottom-nav-btn" id="btnNavConfig" onclick="setActiveDay('config')">
+      <span class="bottom-nav-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+      </span>
+      <span class="bottom-nav-text">Config</span>
+    </button>
   </nav>
 
 </div> <!-- Closes .app div -->
 
 <script>
+// Apply saved theme color and glow on page load
+(function() {
+  const savedColor = localStorage.getItem('roteiroai_theme_color');
+  const savedGlow = localStorage.getItem('roteiroai_theme_glow');
+  if (savedColor) {
+    document.documentElement.style.setProperty('--ai', savedColor);
+  }
+  if (savedGlow) {
+    document.documentElement.style.setProperty('--ai-glow', savedGlow);
+  }
+})();
+
 // ── Supabase Config ──────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://aozyeuhfqqnsrfkbrsre.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Pad-SAGpdApE85PEIU0ucw_BIfTK_7X';
@@ -3539,6 +3635,24 @@ function renderSidebar() {
     };
     list.appendChild(el);
   });
+
+  // 3. Inserir botão de Configurações (Settings) no final
+  const configItem = document.createElement('div');
+  configItem.className = 'day-item' + (activeDay === 'config' ? ' active' : '');
+  configItem.style.setProperty('--accent-color', 'var(--purple)');
+  configItem.style.borderLeftColor = activeDay === 'config' ? 'var(--purple)' : 'transparent';
+  configItem.innerHTML = `
+    <div class="day-dot" style="background:var(--purple); box-shadow: 0 0 8px var(--purple)"></div>
+    <div class="day-info">
+      <div class="day-name">Configurações</div>
+      <div class="day-dest">Perfil e Preferências</div>
+    </div>
+    <div class="day-badge" style="color:var(--purple); border:1px solid var(--purple)22; background:var(--purple)11">
+      ⚙️
+    </div>
+  `;
+  configItem.onclick = () => setActiveDay('config');
+  list.appendChild(configItem);
   
   updateStats();
 
@@ -3580,6 +3694,8 @@ function switchMobileView(view) {
     document.getElementById('btnNavDashboard')?.classList.add('active');
   } else if (view === 'chat') {
     document.getElementById('btnNavChat')?.classList.add('active');
+  } else if (view === 'config') {
+    document.getElementById('btnNavConfig')?.classList.add('active');
   }
 }
 
@@ -3591,11 +3707,13 @@ function setActiveDay(id) {
   const dailyView = document.getElementById('dailyView');
   const dashboardView = document.getElementById('dashboardView');
   const searchView = document.getElementById('searchView');
+  const configView = document.getElementById('configView');
 
   if (id === 'dashboard') {
     dailyView.style.display = 'none';
     dashboardView.style.display = 'flex';
     if (searchView) searchView.style.display = 'none';
+    if (configView) configView.style.display = 'none';
     renderDashboard();
     if (window.innerWidth <= 992) {
       switchMobileView('dashboard');
@@ -3603,6 +3721,7 @@ function setActiveDay(id) {
   } else if (id === 'search') {
     dailyView.style.display = 'none';
     dashboardView.style.display = 'none';
+    if (configView) configView.style.display = 'none';
     if (searchView) {
       searchView.style.display = 'flex';
       renderRecentSearches();
@@ -3610,10 +3729,22 @@ function setActiveDay(id) {
     if (window.innerWidth <= 992) {
       switchMobileView('search');
     }
+  } else if (id === 'config') {
+    dailyView.style.display = 'none';
+    dashboardView.style.display = 'none';
+    if (searchView) searchView.style.display = 'none';
+    if (configView) {
+      configView.style.display = 'flex';
+      renderConfigScreen();
+    }
+    if (window.innerWidth <= 992) {
+      switchMobileView('config');
+    }
   } else {
     dailyView.style.display = 'flex';
     dashboardView.style.display = 'none';
     if (searchView) searchView.style.display = 'none';
+    if (configView) configView.style.display = 'none';
     if (window.innerWidth <= 992) {
       switchMobileView('tasks');
     }
@@ -3632,6 +3763,75 @@ function setActiveDay(id) {
     pill.style.background  = d.color + '18';
     pill.style.border      = `1px solid ${d.color}44`;
     renderTasks();
+  }
+}
+
+// ── Configurations View Logic ──────────────────────────────────────────────────
+const THEME_COLORS = {
+  '#a9e34b': 'rgba(169, 227, 75, 0.35)',  // Lime Green
+  '#b197fc': 'rgba(177, 151, 252, 0.35)', // Electric Purple
+  '#69db7c': 'rgba(105, 219, 124, 0.35)', // Emerald Green
+  '#ffd43b': 'rgba(255, 212, 59, 0.35)',  // Cyber Yellow
+  '#ffa94d': 'rgba(255, 169, 77, 0.35)',  // Neon Orange
+  '#74c0fc': 'rgba(116, 192, 252, 0.35)', // Holographic Blue
+  '#ff8787': 'rgba(255, 135, 135, 0.35)', // Coral Red
+  '#ff85a2': 'rgba(255, 133, 162, 0.35)'  // Hot Pink
+};
+
+function renderConfigScreen() {
+  const avatarEl = document.getElementById('configUserAvatar');
+  const nameEl = document.getElementById('configUserName');
+  const emailEl = document.getElementById('configUserEmail');
+  
+  if (currentUser) {
+    const meta = currentUser.user_metadata || {};
+    const name = meta.full_name || currentUser.email || 'Usuário RoteiroAI';
+    const email = currentUser.email || '';
+    const avatar = meta.avatar_url || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+    
+    if (nameEl) nameEl.textContent = name;
+    if (emailEl) emailEl.textContent = email;
+    if (avatarEl) avatarEl.src = avatar;
+  } else {
+    if (nameEl) nameEl.textContent = 'Visitante';
+    if (emailEl) emailEl.textContent = 'Não autenticado';
+    if (avatarEl) avatarEl.src = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+  }
+
+  // Select the active color in picker
+  const savedColor = localStorage.getItem('roteiroai_theme_color') || '#a9e34b';
+  const buttons = document.querySelectorAll('.color-picker-btn');
+  buttons.forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.getAttribute('data-color') === savedColor) {
+      btn.classList.add('active');
+    }
+  });
+}
+
+function changeAppThemeColor(color, element) {
+  const glow = THEME_COLORS[color] || 'rgba(255, 255, 255, 0.2)';
+  document.documentElement.style.setProperty('--ai', color);
+  document.documentElement.style.setProperty('--ai-glow', glow);
+  
+  localStorage.setItem('roteiroai_theme_color', color);
+  localStorage.setItem('roteiroai_theme_glow', glow);
+  
+  // Update active state in color picker
+  const buttons = document.querySelectorAll('.color-picker-btn');
+  buttons.forEach(btn => btn.classList.remove('active'));
+  
+  if (element) {
+    element.classList.add('active');
+  } else {
+    const btn = document.querySelector(`.color-picker-btn[data-color="${color}"]`);
+    if (btn) btn.classList.add('active');
+  }
+
+  // Update accentBar and dashboard elements if open
+  const accentBar = document.getElementById('accentBar');
+  if (accentBar && activeDay === 'dashboard') {
+    accentBar.style.background = color;
   }
 }
 
