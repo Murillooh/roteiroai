@@ -1,6 +1,6 @@
 {
   "appId": "com.roteiroai.app",
-  "appName": "TarefasIA",
+  "appName": "Tarefas IA",
   "webDir": "public",
   "server": {
     "androidScheme": "https"
