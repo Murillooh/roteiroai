@@ -5244,15 +5244,15 @@ function addAIMessage(role, text, isTyping = false, isReport = false, fileConfig
       btn.style.padding = '8px 12px';
       
       if (fileConfig) {
-        btn.innerHTML = `📥 Baixar PDF (${fileConfig.title})`;
+        btn.innerHTML = `📥 Gerar Relatório em PDF`;
         btn.onclick = function() {
-          downloadCustomPeriodPDF(fileConfig.type, fileConfig.date, fileConfig.title, text);
+          showPDFOptions(fileConfig.type, fileConfig.date, fileConfig.title, text, 'custom');
         };
       } else {
-        btn.innerHTML = '📥 Baixar Relatório em PDF';
+        btn.innerHTML = '📥 Gerar Relatório em PDF';
         btn.dataset.rawText = text;
         btn.onclick = function() {
-          downloadReportPDF(this.dataset.rawText);
+          showPDFOptions(null, null, null, this.dataset.rawText, 'standard');
         };
       }
       div.appendChild(btn);
@@ -5280,6 +5280,314 @@ function updateChatHistoryCounter() {
 }
 
 // ── Geração do PDF Corporativo Elegante com Dashboard Integrado ──────────────────
+// Diálogo de opções para PDF
+function showPDFOptions(type, date, title, aiText, reportType) {
+  const backdrop = document.createElement('div');
+  backdrop.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease-out;
+  `;
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background: #161616;
+    border: 1px solid #1f1f1f;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s ease-out;
+  `;
+
+  dialog.innerHTML = `
+    <h3 style="color: #e8e8e8; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
+      📄 Opções de Relatório
+    </h3>
+    <p style="color: #666666; font-size: 13px; margin: 0 0 20px 0; line-height: 1.4;">
+      Escolha como deseja compartilhar seu relatório
+    </p>
+    <div style="display: flex; gap: 12px; flex-direction: column;">
+      <button id="btnDownloadPDF" style="
+        background: #7c3aed;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
+        ⬇️ Baixar PDF
+      </button>
+      <button id="btnShareWhatsApp" style="
+        background: #25d366;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#1fa857'" onmouseout="this.style.background='#25d366'">
+        💬 Compartilhar no WhatsApp
+      </button>
+      <button id="btnCancel" style="
+        background: #333333;
+        color: #e8e8e8;
+        border: 1px solid #1f1f1f;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#444444'" onmouseout="this.style.background='#333333'">
+        ✕ Cancelar
+      </button>
+    </div>
+  `;
+
+  backdrop.appendChild(dialog);
+  document.body.appendChild(backdrop);
+
+  const btnDownload = dialog.querySelector('#btnDownloadPDF');
+  const btnShare = dialog.querySelector('#btnShareWhatsApp');
+  const btnCancel = dialog.querySelector('#btnCancel');
+
+  const close = () => {
+    backdrop.style.animation = 'fadeOut 0.2s ease-out forwards';
+    setTimeout(() => backdrop.remove(), 200);
+  };
+
+  btnDownload.addEventListener('click', () => {
+    close();
+    if (reportType === 'custom') {
+      downloadCustomPeriodPDF(type, date, title, aiText);
+    } else {
+      downloadReportPDF(aiText);
+    }
+  });
+
+  btnShare.addEventListener('click', () => {
+    close();
+    if (reportType === 'custom') {
+      shareReportViaWhatsApp(type, date, title, aiText, 'custom');
+    } else {
+      shareReportViaWhatsApp(null, null, null, aiText, 'standard');
+    }
+  });
+
+  btnCancel.addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+
+  // Add animations
+  const style = document.createElement('style');
+  if (!document.getElementById('pdf-animations')) {
+    style.id = 'pdf-animations';
+    style.textContent = `
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+      @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// Compartilhar via WhatsApp
+async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
+  try {
+    // Gera o PDF primeiro
+    let element, opt, fileName;
+    
+    if (reportType === 'custom') {
+      element = createCustomPDFElement(type, date, title, aiText);
+      const now = new Date();
+      fileName = `relatorio_${title}_${now.toISOString().slice(0, 10)}.pdf`;
+      opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.99 },
+        html2canvas: { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#000000' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+    } else {
+      element = createStandardPDFElement(aiText);
+      const now = new Date();
+      fileName = `relatorio_tarefas_ia_${now.toISOString().slice(0, 10)}.pdf`;
+      opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.99 },
+        html2canvas: { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#000000' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+    }
+
+    document.body.appendChild(element);
+
+    console.log('🔵 Gerando PDF para compartilhamento...');
+    const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+    console.log('✅ PDF gerado com sucesso');
+
+    // Remove element from DOM
+    if (element && element.parentNode) {
+      element.parentNode.removeChild(element);
+    }
+
+    // Compartilhar via Capacitor Share ou WhatsApp Web
+    if (window.Capacitor && window.Capacitor.isNative) {
+      try {
+        console.log('🔵 Compartilhando via Capacitor Share (nativo)...');
+        const { Share } = window.Capacitor.Plugins;
+        const base64 = await blobToBase64(pdfBlob);
+        
+        // Tenta compartilhar direto com o blob
+        await Share.share({
+          title: 'Relatório de Tarefas',
+          text: 'Confira meu relatório de tarefas gerado pela IA 📊',
+          files: [{
+            data: base64,
+            mimeType: 'application/pdf',
+            fileName: fileName
+          }]
+        });
+        console.log('✅ Compartilhado via WhatsApp (nativo)');
+      } catch (nativeErr) {
+        console.warn('⚠️ Compartilhamento nativo falhou:', nativeErr);
+        // Fallback para WhatsApp Web
+        shareViaWhatsAppWeb(fileName, aiText);
+      }
+    } else {
+      // Desktop - fallback para WhatsApp Web
+      shareViaWhatsAppWeb(fileName, aiText);
+    }
+  } catch (err) {
+    console.error('❌ Erro ao compartilhar:', err);
+    alert('❌ Não foi possível compartilhar. Tente novamente.');
+  }
+}
+
+// Compartilhar via WhatsApp Web (fallback para desktop)
+function shareViaWhatsAppWeb(fileName, aiText) {
+  const message = encodeURIComponent(
+    `📊 *Relatório de Tarefas IA*\n\n${aiText.substring(0, 200)}...\n\n` +
+    `📄 Arquivo: ${fileName}\n` +
+    `🔗 Verifique seu email ou downloads para abrir o PDF`
+  );
+  
+  window.open(`https://wa.me/?text=${message}`, '_blank');
+  alert('✅ WhatsApp aberto! Cole o arquivo PDF na conversa.');
+}
+
+// Funções auxiliares para criar elementos PDF
+function createStandardPDFElement(aiText) {
+  const element = document.createElement('div');
+  element.style.width = '210mm';
+  element.style.fontFamily = "'Inter', sans-serif";
+  element.style.color = '#e8e8e8';
+  element.style.backgroundColor = '#000000';
+  element.style.lineHeight = '1.5';
+  element.style.fontSize = '12px';
+  element.style.fontWeight = '400';
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  
+  const headerHTML = `
+    <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+      <div>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
+        <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Relatório de Desempenho Executivo</p>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 8px; color: #666666; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px;">Data de Emissão</div>
+        <div style="font-size: 12px; color: #ffffff; font-weight: 700;">${dateStr} às ${timeStr}</div>
+      </div>
+    </div>
+  `;
+
+  const aiFormatted = aiText.replace(/\n/g, '<br>');
+  const aiHTML = `
+    <div style="background: #111111; border: 1px solid #1f1f1f; border-left: 5px solid #7c3aed; padding: 18px; border-radius: 8px; margin-bottom: 20px; page-break-inside: avoid;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <span style="font-size: 16px; color: #7c3aed; font-weight: bold; line-height: 1;">✦</span>
+        <span style="font-size: 10px; color: #7c3aed; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ANÁLISE ESTATÍSTICA (IA GEMINI)</span>
+      </div>
+      <div style="font-size: 11.5px; color: #e8e8e8; line-height: 1.6; font-style: italic;">
+        "${aiFormatted}"
+      </div>
+    </div>
+  `;
+
+  element.innerHTML = headerHTML + aiHTML;
+  return element;
+}
+
+function createCustomPDFElement(type, date, title, aiText) {
+  const element = document.createElement('div');
+  element.style.width = '210mm';
+  element.style.fontFamily = "'Inter', sans-serif";
+  element.style.color = '#e8e8e8';
+  element.style.backgroundColor = '#000000';
+  element.style.lineHeight = '1.5';
+  element.style.fontSize = '12px';
+  element.style.fontWeight = '400';
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  
+  const headerHTML = `
+    <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+      <div>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
+        <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${title || 'Relatório de Atividades'}</p>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 8px; color: #666666; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px;">Período</div>
+        <div style="font-size: 12px; color: #ffffff; font-weight: 700;">${dateStr}</div>
+      </div>
+    </div>
+  `;
+
+  const aiFormatted = aiText.replace(/\n/g, '<br>');
+  const aiHTML = `
+    <div style="background: #111111; border: 1px solid #1f1f1f; border-left: 5px solid #7c3aed; padding: 18px; border-radius: 8px; margin-bottom: 20px; page-break-inside: avoid;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <span style="font-size: 16px; color: #7c3aed; font-weight: bold; line-height: 1;">✦</span>
+        <span style="font-size: 10px; color: #7c3aed; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ANÁLISE DO PERÍODO</span>
+      </div>
+      <div style="font-size: 11.5px; color: #e8e8e8; line-height: 1.6;">
+        ${aiFormatted}
+      </div>
+    </div>
+  `;
+
+  element.innerHTML = headerHTML + aiHTML;
+  return element;
+}
+
 async function downloadReportPDF(aiText) {
   const element = document.createElement('div');
   element.style.width = '210mm';
