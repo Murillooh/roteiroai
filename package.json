@@ -1,7 +1,7 @@
 {
-  "name": "roteiro-ai",
+  "name": "tarefas-ia",
   "version": "1.0.0",
-  "description": "RoteiroAI — Gestão de Visitas com Inteligência Artificial",
+  "description": "TarefasIA — Gestão de Tarefas com Inteligência Artificial",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

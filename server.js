@@ -80,7 +80,7 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   const keySource = process.env.GOOGLE_API_KEY ? '.env' : 'interface do usuário';
-  console.log(`\n✅ RoteiroAI rodando em http://localhost:${PORT}`);
+  console.log(`\n✅ TarefasIA rodando em http://localhost:${PORT}`);
   console.log(`   Modelo: Google Gemini 3.1 Flash Lite`);
   console.log(`   Chave de API: configurada via ${keySource}`);
   console.log(`   Pressione Ctrl+C para parar.\n`);
