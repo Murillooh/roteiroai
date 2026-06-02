@@ -2823,8 +2823,9 @@
       <!-- Profile Card -->
       <div class="db-box" style="padding: 20px; display: flex; align-items: center; justify-content: space-between; border-radius: 16px;">
         <div style="display: flex; align-items: center; gap: 14px; text-align: left;">
-          <div style="position: relative; width: 54px; height: 54px; border-radius: 50%; padding: 2px; background: linear-gradient(135deg, var(--ai), var(--purple)); box-shadow: 0 0 10px var(--ai-glow);">
-            <img id="configUserAvatar" src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Foto de Perfil" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #111;" />
+          <div style="position: relative; width: 54px; height: 54px; border-radius: 50%; padding: 2px; background: linear-gradient(135deg, var(--ai), var(--purple)); box-shadow: 0 0 10px var(--ai-glow); display: flex; align-items: center; justify-content: center;">
+            <img id="configUserAvatar" src="https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y" alt="Foto de Perfil" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid #111;" onerror="handleAvatarError()" />
+            <div id="configUserInitials" style="display: none; width: 100%; height: 100%; border-radius: 50%; background: #222; border: 2px solid #111; color: var(--ai); align-items: center; justify-content: center; font-size: 16px; font-weight: bold; font-family: 'Goldman', sans-serif;"></div>
           </div>
           <div>
             <h3 id="configUserName" style="font-family: 'Goldman', sans-serif; font-size: 15px; color: var(--text); margin-bottom: 2px;">Carregando...</h3>
@@ -4106,8 +4107,12 @@ function calculateConfigStats() {
 
 function renderConfigScreen() {
   const avatarEl = document.getElementById('configUserAvatar');
+  const initialsEl = document.getElementById('configUserInitials');
   const nameEl = document.getElementById('configUserName');
   const emailEl = document.getElementById('configUserEmail');
+  
+  if (avatarEl) avatarEl.style.display = 'block';
+  if (initialsEl) initialsEl.style.display = 'none';
   
   if (currentUser) {
     const meta = currentUser.user_metadata || {};
@@ -4271,6 +4276,27 @@ function toggleNotification(type, isEnabled) {
     const el = document.getElementById(cfg.el);
     if (el) el.textContent = isEnabled ? cfg.on : cfg.off;
   }
+}
+
+function handleAvatarError() {
+  const avatarEl = document.getElementById('configUserAvatar');
+  const initialsEl = document.getElementById('configUserInitials');
+  if (avatarEl) avatarEl.style.display = 'none';
+  if (initialsEl) {
+    initialsEl.style.display = 'flex';
+    const nameEl = document.getElementById('configUserName');
+    const name = nameEl ? nameEl.textContent : 'U';
+    initialsEl.textContent = getInitials(name);
+  }
+}
+
+function getInitials(name) {
+  if (!name || name === 'Carregando...' || name === 'Visitante') return 'U';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return parts[0].substring(0, 2).toUpperCase();
 }
 
 // ── Account Settings ──────────────────────────────────────────────────────────
