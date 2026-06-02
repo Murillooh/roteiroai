@@ -5527,25 +5527,86 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
   };
 
   try {
+    console.log('🔵 Tentando html2pdf().save()...');
     await html2pdf().set(opt).from(element).save();
-  } catch (err) {
-    console.warn('html2pdf save falhou, tentando fallback...', err);
-    try {
-      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (fallbackErr) {
-      console.error('Erro no fallback de PDF:', fallbackErr);
-      alert('Não foi possível gerar o PDF no seu dispositivo. Tente usar o app no navegador ou outro dispositivo.');
-    }
-  } finally {
+    console.log('✅ PDF salvo com sucesso via html2pdf.save()');
     cleanup();
+    return;
+  } catch (err) {
+    console.warn('⚠️ html2pdf.save() falhou:', err);
   }
+
+  try {
+    console.log('🔵 Tentando fallback: outputPdf(blob)...');
+    const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+    console.log('✅ Blob PDF gerado, tentando download via Capacitor...');
+    
+    // Tenta usar Capacitor para download se disponível
+    if (window.Capacitor && window.Capacitor.isNative) {
+      try {
+        const { Filesystem, Directory } = window.Capacitor.Plugins;
+        const base64 = await blobToBase64(pdfBlob);
+        const downloadDir = await Filesystem.getUri({ directory: Directory.Documents, path: '.' });
+        const fileName = opt.filename || 'relatorio.pdf';
+        
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64,
+          directory: Directory.Documents,
+          recursive: true
+        });
+        
+        console.log('✅ PDF baixado para a pasta Documents via Capacitor:', fileName);
+        alert(`✅ Relatório salvo em: Documents/${fileName}`);
+        cleanup();
+        return;
+      } catch (capacitorErr) {
+        console.warn('⚠️ Download via Capacitor falhou:', capacitorErr);
+      }
+    }
+
+    // Fallback: criar URL do blob e abrir em nova aba
+    console.log('🔵 Tentando fallback: abrir blob em nova aba...');
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = opt.filename || 'relatorio.pdf';
+    link.target = '_blank';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.warn('Erro ao revogar URL:', e);
+      }
+    }, 60000);
+    
+    console.log('✅ PDF aberto em nova aba');
+    alert('✅ Relatório gerado! Verifique a abrir em nova aba ou na pasta de downloads.');
+    cleanup();
+    return;
+  } catch (fallbackErr) {
+    console.error('❌ Todos os métodos falharam:', fallbackErr);
+    cleanup();
+    alert('❌ Não foi possível gerar o PDF. Tente novamente ou use o app no navegador desktop.');
+  }
+}
+
+async function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 async function downloadCustomPeriodPDF(type, date, title, aiText) {
