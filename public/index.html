@@ -465,12 +465,13 @@
     border-top: 1px solid var(--border);
     display: flex;
     gap: 8px;
+    align-items: flex-end;
   }
   .ai-input {
     flex: 1;
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     color: var(--text);
     font-family: 'Inter', sans-serif;
     font-size: 13px;
@@ -478,7 +479,7 @@
     padding: 10px 12px;
     outline: none;
     resize: none;
-    transition: border-color .15s;
+    transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
     min-height: 40px;
     max-height: 100px;
   }
@@ -487,48 +488,76 @@
     font-size: 11.5px;
     color: var(--sub);
   }
-  .ai-input:focus { border-color: var(--ai); }
+  .ai-input:focus {
+    border-color: var(--ai);
+    background: rgba(255, 255, 255, 0.02);
+  }
   .ai-send {
     background: var(--ai);
-    border: none;
-    border-radius: 8px;
-    color: #000;
-    font-family: 'Goldman', sans-serif;
-    font-weight: 700;
-    font-size: 16px;
-    width: 42px;
+    border: 1px solid rgba(169, 227, 75, 0.2);
+    border-radius: 10px;
+    color: #080808;
+    width: 40px;
+    height: 40px;
     cursor: pointer;
-    transition: opacity .15s;
+    transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(169, 227, 75, 0.1);
   }
-  .ai-send:hover { opacity: .8; }
-  .ai-send:disabled { opacity: .3; cursor: not-allowed; }
+  .ai-send:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(169, 227, 75, 0.3);
+    background: #bbf25c;
+  }
+  .ai-send:active:not(:disabled) {
+    transform: translateY(0) scale(0.95);
+    box-shadow: 0 1px 2px rgba(169, 227, 75, 0.1);
+  }
+  .ai-send:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
 
   .ai-mic {
-    background: var(--card);
+    background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 10px;
     color: var(--text);
-    font-size: 16px;
-    width: 42px;
+    width: 40px;
+    height: 40px;
     cursor: pointer;
-    transition: all .15s;
+    transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
     flex-shrink: 0;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
   }
-  .ai-mic:hover { border-color: var(--ai); color: var(--ai); }
+  .ai-mic:hover:not(.listening) {
+    border-color: var(--ai);
+    color: var(--ai);
+    background: rgba(169, 227, 75, 0.04);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(169, 227, 75, 0.1);
+  }
+  .ai-mic:active:not(.listening) {
+    transform: translateY(0) scale(0.95);
+  }
   .ai-mic.listening {
     background: var(--red);
-    color: #000;
+    color: #080808;
     border-color: var(--red);
-    animation: mic-pulse 1.2s infinite ease-in-out;
+    box-shadow: 0 0 16px rgba(255, 135, 135, 0.6);
+    animation: mic-pulse 1.4s infinite cubic-bezier(0.4, 0, 0.2, 1);
   }
   @keyframes mic-pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 135, 135, 0.6); }
+    50% { transform: scale(1.06); box-shadow: 0 0 0 8px rgba(255, 135, 135, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 135, 135, 0); }
   }
 
   /* ── CONFIG MODAL ── */
@@ -2717,8 +2746,19 @@
         rows="1"
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage()}"
       ></textarea>
-      <button class="ai-mic" id="aiMicBtn" onclick="toggleSpeechRecognition()" title="Falar por voz">🎙️</button>
-      <button class="ai-send" id="aiSendBtn" onclick="sendMessage()">↑</button>
+      <button class="ai-mic" id="aiMicBtn" onclick="toggleSpeechRecognition()" title="Falar por voz">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" x2="12" y1="19" y2="22"></line>
+        </svg>
+      </button>
+      <button class="ai-send" id="aiSendBtn" onclick="sendMessage()" title="Enviar mensagem">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5"></line>
+          <polyline points="5 12 12 5 19 12"></polyline>
+        </svg>
+      </button>
     </div>
   </aside>
 
@@ -4175,7 +4215,7 @@ function initSpeechRecognition() {
     const micBtn = document.getElementById('aiMicBtn');
     if (micBtn) {
       micBtn.classList.add('listening');
-      micBtn.innerHTML = '🛑';
+      micBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg>`;
     }
     const input = document.getElementById('aiInput');
     if (input) {
@@ -4188,7 +4228,7 @@ function initSpeechRecognition() {
     const micBtn = document.getElementById('aiMicBtn');
     if (micBtn) {
       micBtn.classList.remove('listening');
-      micBtn.innerHTML = '🎙️';
+      micBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>`;
     }
     const input = document.getElementById('aiInput');
     if (input) {
