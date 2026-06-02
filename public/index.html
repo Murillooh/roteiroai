@@ -898,29 +898,172 @@
     0% { transform: translate(0, 0) scale(1); }
     100% { transform: translate(-30px, -40px) scale(1.15); }
   }
+  .login-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(169, 227, 75, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(169, 227, 75, 0.015) 1px, transparent 1px);
+    background-size: 45px 45px;
+    mask-image: radial-gradient(ellipse 65% 65% at 50% 50%, black 30%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 65% 65% at 50% 50%, black 30%, transparent 100%);
+    z-index: 1;
+    pointer-events: none;
+  }
   .login-card {
-    background: rgba(13, 13, 15, 0.75);
-    backdrop-filter: blur(30px) saturate(190%);
-    -webkit-backdrop-filter: blur(30px) saturate(190%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 24px;
-    padding: 56px 44px;
-    width: 440px;
+    background: rgba(10, 10, 12, 0.85);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 28px;
+    padding: 52px 40px 44px;
+    width: 450px;
     max-width: 100%;
     box-shadow: 
-      0 30px 60px rgba(0, 0, 0, 0.75), 
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      0 0 50px rgba(169, 227, 75, 0.03);
+      0 30px 70px rgba(0, 0, 0, 0.9), 
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
     display: flex;
     flex-direction: column;
     align-items: center;
     position: relative;
     z-index: 2;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
     animation: loginFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .login-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(169, 227, 75, 0.15);
+    box-shadow: 
+      0 35px 80px rgba(0, 0, 0, 0.95), 
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      0 0 50px rgba(169, 227, 75, 0.05);
+  }
+  
+  /* Modern Corner brackets for HUD/Sci-fi look */
+  .login-card-corner {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+  }
+  .login-card-corner::before,
+  .login-card-corner::after {
+    content: '';
+    position: absolute;
+    background: var(--ai);
+    opacity: 0.5;
+    transition: all 0.3s ease;
+  }
+  .login-card-corner::before { width: 1.5px; height: 100%; }
+  .login-card-corner::after { width: 100%; height: 1.5px; }
+  
+  .login-card-corner.tl { top: 16px; left: 16px; }
+  .login-card-corner.tr { top: 16px; right: 16px; transform: scaleX(-1); }
+  .login-card-corner.bl { bottom: 16px; left: 16px; transform: scaleY(-1); }
+  .login-card-corner.br { bottom: 16px; right: 16px; transform: scale(-1); }
+  
+  .login-card:hover .login-card-corner::before,
+  .login-card:hover .login-card-corner::after {
+    background: var(--purple);
+    opacity: 0.8;
+    box-shadow: 0 0 6px rgba(177, 151, 252, 0.6);
+  }
+
+  /* Value propositions/features inside login */
+  .login-features {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+    text-align: left;
+  }
+  .login-feature-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.015);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    transition: all 0.25s ease;
+  }
+  .login-feature-item:hover {
+    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(255, 255, 255, 0.08);
+    transform: translateX(3px);
+  }
+  .login-feature-icon {
+    font-size: 15px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .login-feature-text strong {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 1px;
+  }
+  .login-feature-text span {
+    display: block;
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.45);
+    line-height: 1.3;
   }
   @keyframes loginFadeIn {
     from { opacity: 0; transform: translateY(40px); }
     to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* Badge above logo */
+  .login-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 4px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    margin-bottom: 24px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    cursor: default;
+    z-index: 3;
+  }
+  .login-badge:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(169, 227, 75, 0.2);
+    transform: translateY(-1.5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+  .login-badge-icon {
+    width: 22px;
+    height: 22px;
+    background: var(--ai);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000000;
+    transition: transform 0.3s ease;
+  }
+  .login-badge:hover .login-badge-icon {
+    transform: rotate(15deg) scale(1.05);
+  }
+  .login-badge span {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.45);
+    letter-spacing: 0.2px;
+    transition: color 0.2s ease;
+  }
+  .login-badge:hover span {
+    color: var(--text);
   }
   .login-logo {
     font-family: 'Goldman', sans-serif;
@@ -937,7 +1080,7 @@
   }
   .login-subtitle {
     font-size: 11px;
-    color: var(--sub);
+    color: rgba(255, 255, 255, 0.35);
     letter-spacing: 0.12em;
     margin-bottom: 32px;
     text-transform: uppercase;
@@ -957,7 +1100,7 @@
   }
   .login-header-text p {
     font-size: 12.5px;
-    color: var(--sub);
+    color: rgba(255, 255, 255, 0.5);
     line-height: 1.5;
   }
   .login-form {
@@ -1139,32 +1282,104 @@
     margin-left: 12px;
   }
   .login-google-btn {
+    position: relative;
     width: 100%;
-    height: 52px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 12px;
+    height: 54px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
     color: #ffffff !important;
     font-family: 'Inter', sans-serif;
     font-weight: 600;
-    font-size: 14.5px;
+    font-size: 14px;
+    letter-spacing: 0.2px;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
     margin-top: 10px;
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .login-google-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 50%, transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .login-google-btn::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 80%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+    transform: skewX(-20deg);
+    pointer-events: none;
+    z-index: 2;
+  }
+  .login-google-btn:hover::after {
+    animation: shimmerSweep 1.5s infinite;
+  }
+  @keyframes shimmerSweep {
+    0% { left: -150%; }
+    100% { left: 150%; }
+  }
+  .login-google-bottom-bar {
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: linear-gradient(90deg, #4285F4 0%, #EA4335 25%, #FBBC05 50%, #34A853 75%, #4285F4 100%);
+    background-size: 200% auto;
+    border-radius: 2px 2px 0 0;
+    opacity: 0.4;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .login-google-btn:hover .login-google-bottom-bar {
+    left: 0;
+    right: 0;
+    opacity: 1;
+    height: 3px;
+    filter: drop-shadow(0 0 6px rgba(66, 133, 244, 0.8));
+    animation: waveGradient 2s linear infinite;
+  }
+  @keyframes waveGradient {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
   }
   .login-google-btn:hover {
-    background: rgba(255, 255, 255, 0.09);
-    border-color: rgba(255, 255, 255, 0.25);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4), 0 0 15px rgba(255, 255, 255, 0.05);
-    transform: translateY(-1.5px);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 
+      0 12px 30px rgba(0, 0, 0, 0.4),
+      0 0 20px rgba(255, 255, 255, 0.02);
+    transform: translateY(-2px);
+  }
+  .login-google-btn:hover svg {
+    transform: scale(1.1) rotate(6deg);
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+  }
+  .login-google-btn svg {
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.4s ease;
+    z-index: 3;
   }
   .login-google-btn:active {
-    transform: translateY(0.5px);
+    transform: translateY(0);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   }
   .login-google-btn.loading {
     opacity: 0.6;
@@ -2122,11 +2337,28 @@
 
 <!-- LOGIN SCREEN -->
 <div class="login-container" id="loginContainer">
+  <!-- Tech Grid Background -->
+  <div class="login-grid"></div>
+
   <!-- Glowing decorative backgrounds -->
   <div class="login-bg-glow login-bg-glow-1"></div>
   <div class="login-bg-glow login-bg-glow-2"></div>
   
   <div class="login-card">
+    <!-- Sci-fi Corner Brackets -->
+    <div class="login-card-corner tl"></div>
+    <div class="login-card-corner tr"></div>
+    <div class="login-card-corner bl"></div>
+    <div class="login-card-corner br"></div>
+
+    <!-- IA Badge -->
+    <div class="login-badge">
+      <div class="login-badge-icon">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C12 2 12.5 8.5 19 12C12.5 15.5 12 22 12 22C12 22 11.5 15.5 5 12C11.5 8.5 12 2 12 2Z"/></svg>
+      </div>
+      <span>Gestão com inteligência artificial</span>
+    </div>
+
     <div class="login-logo">TAREFAS<span>IA</span></div>
     <div class="login-subtitle">Gestão de Tarefas & Inteligência Artificial</div>
     
@@ -2135,7 +2367,32 @@
       <p>Acesse sua conta para gerenciar suas tarefas</p>
     </div>
     
-    <div style="width:100%; display:flex; flex-direction:column; gap:20px; align-items:center; margin-top:8px;">
+    <!-- Value Props / Features -->
+    <div class="login-features">
+      <div class="login-feature-item">
+        <div class="login-feature-icon" style="background: rgba(177, 151, 252, 0.08); color: var(--purple);">⚡</div>
+        <div class="login-feature-text">
+          <strong>Produtividade Inteligente</strong>
+          <span>Gerenciamento semanal ágil, focado em alta performance.</span>
+        </div>
+      </div>
+      <div class="login-feature-item">
+        <div class="login-feature-icon" style="background: rgba(169, 227, 75, 0.08); color: var(--ai);">✦</div>
+        <div class="login-feature-text">
+          <strong>Assistente Gemini Integrado</strong>
+          <span>Detalhamento de tarefas e conselhos de IA instantâneos.</span>
+        </div>
+      </div>
+      <div class="login-feature-item">
+        <div class="login-feature-icon" style="background: rgba(116, 192, 252, 0.08); color: var(--blue);">📊</div>
+        <div class="login-feature-text">
+          <strong>Relatórios Executivos</strong>
+          <span>Geração e exportação limpa de relatórios em PDF.</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:100%; display:flex; flex-direction:column; gap:16px; align-items:center;">
       <button
         id="googleOAuthBtn"
         type="button"
@@ -2149,9 +2406,10 @@
           <path fill="#34A853" d="M12 23c3.24 0 5.95-1.08 7.93-2.91l-3.61-2.8c-1.01.68-2.29 1.09-3.79 1.09-3.08 0-5.73-2.53-6.66-5.46l-3.87 3C3.37 19.35 7.35 23 12 23z"/>
         </svg>
         Entrar com Google
+        <div class="login-google-bottom-bar"></div>
       </button>
-      <p style="font-size:11px; color:var(--sub); text-align:center; line-height:1.6; max-width:280px;">
-        Seus dados ficam sincronizados em todos os dispositivos e são exclusivos da sua conta Google.
+      <p style="font-size:11px; color:rgba(255, 255, 255, 0.45); text-align:center; line-height:1.6; max-width:290px;">
+        Seus dados são sincronizados e protegidos na sua conta Google.
       </p>
     </div>
   </div>
