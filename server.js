@@ -40,6 +40,11 @@ const chatLimiter = rateLimit({
 
 app.use('/api/chat', chatLimiter);
 
+// ── Status: informa ao frontend se a chave já está no servidor ───────────────
+app.get('/api/status', (req, res) => {
+  res.json({ serverHasKey: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) });
+});
+
 // ── Middleware de Validação do JWT do Supabase ──────────────────────────────
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -107,6 +112,13 @@ app.post('/api/chat', async (req, res) => {
 
     if (!response.ok) {
       const errMsg = data?.error?.message || 'Erro desconhecido.';
+      console.error('❌ Gemini retornou erro:', {
+        status: response.status,
+        error: errMsg,
+        contentsLength: Array.isArray(normalizedContents) ? normalizedContents.length : 0,
+        responseBody: data
+      });
+
       let userMessage = errMsg;
 
       if (response.status === 401 || response.status === 403) {
@@ -132,11 +144,6 @@ app.post('/api/chat', async (req, res) => {
     console.error('❌ Erro ao chamar Gemini:', err.message);
     res.status(500).json({ error: 'Falha ao conectar com a API do Google.', detail: err.message });
   }
-});
-
-// ── Status: informa ao frontend se a chave já está no servidor ───────────────
-app.get('/api/status', (req, res) => {
-  res.json({ serverHasKey: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) });
 });
 
 // Fallback: qualquer rota desconhecida retorna o index.html

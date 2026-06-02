@@ -3209,9 +3209,15 @@ try {
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const PRODUCTION_API_URL = 'https://roteiroai-beta.vercel.app'; // Sua URL de produção na Vercel
-// const PRODUCTION_API_URL = 'http://192.168.1.106:3000'; // IP local do seu computador para testes no Wi-Fi
+const LOCAL_API_URL = 'http://192.168.1.106:3000'; // IP local do seu computador para testes no Wi-Fi
 const isCapacitorApp = !!(window.Capacitor && window.Capacitor.isNative);
-const BASE_URL = isCapacitorApp ? PRODUCTION_API_URL : '';
+const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname) ||
+  window.location.href.includes('localhost') ||
+  window.location.protocol === 'capacitor:' ||
+  window.location.protocol === 'ionic:';
+const BASE_URL = isCapacitorApp
+  ? (isLocalHost ? LOCAL_API_URL : PRODUCTION_API_URL)
+  : '';
 const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
@@ -3243,10 +3249,60 @@ async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
 
   const data = await response.json();
   if (!response.ok) {
-    const errMsg = data?.error?.message || 'Erro desconhecido na API do Gemini.';
-    throw new Error(errMsg);
+    const apiMessage = data?.error?.message || data?.error?.code || 'Erro desconhecido na API do Gemini.';
+    let userMessage = apiMessage;
+
+    if (response.status === 401 || response.status === 403) {
+      userMessage = '🔑 Chave do Google inválida ou expirada. Verifique sua chave no painel de API.';
+    } else if (response.status === 429) {
+      userMessage = '⏳ Limite de requisições do Gemini atingido. Aguarde e tente novamente.';
+    } else if (response.status >= 500) {
+      userMessage = '💡 Erro no servidor do Gemini. Tente novamente mais tarde.';
+    }
+
+    throw new Error(userMessage);
   }
   return { text: data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta.' };
+}
+
+async function callGeminiProxy(body) {
+  const sessionRes = await _supabase.auth.getSession();
+  const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
+  const res = await fetch(API_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-client-api-key': '',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    const errMsg = data?.error || data?.detail || 'Erro desconhecido da API.';
+    const error = new Error(errMsg);
+    error.status = res.status;
+    error.body = data;
+    throw error;
+  }
+
+  return data;
+}
+
+async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, localKey, useContents = false) {
+  const body = {
+    systemPrompt,
+    ...(useContents ? { contents: messageOrContents } : { userMessage: messageOrContents }),
+  };
+
+  try {
+    return await callGeminiProxy(body);
+  } catch (proxyError) {
+    if (!localKey) throw proxyError;
+    console.warn('Proxy Gemini falhou, tentando chave local:', proxyError.message);
+    return await callGeminiDirect(systemPrompt, messageOrContents, localKey);
+  }
 }
 
 // ── Date Utilities ───────────────────────────────────────────────────────────
@@ -5009,31 +5065,7 @@ Data/Base operacional visitada: "${dayName} (${dayDest})"
 ${targetTask.time ? 'Horário programado: ' + targetTask.time : ''}`;
 
   try {
-    let data;
-    if (localKey) {
-      data = await callGeminiDirect(systemPrompt, userMessage, localKey);
-    } else {
-      const sessionRes = await _supabase.auth.getSession();
-      const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
-      const res = await fetch(API_ENDPOINT, {
-        method:  'POST',
-        headers: {
-          'Content-Type':     'application/json',
-          'x-client-api-key': '',
-          'Authorization':    `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          systemPrompt,
-          userMessage,
-        }),
-      });
-
-      data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Erro ao gerar detalhamento.');
-      }
-    }
-
+    const data = await callGeminiWithProxyFallback(systemPrompt, userMessage, localKey, false);
     const reply = data.text || '';
     textarea.value = reply;
   } catch (e) {
@@ -6028,31 +6060,8 @@ Foque no progresso consolidado, bases visitadas e pontos de atenção.
 Responda em português brasileiro de forma profissional e direta.`;
 
   try {
-    let data;
-    if (localKey) {
-      data = await callGeminiDirect(systemPrompt, context + '\n\nPor favor, faça a análise operacional do meu roteiro semanal.', localKey);
-    } else {
-      const sessionRes = await _supabase.auth.getSession();
-      const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
-      const res = await fetch(API_ENDPOINT, {
-        method:  'POST',
-        headers: {
-          'Content-Type':     'application/json',
-          'x-client-api-key': '',
-          'Authorization':    `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          systemPrompt,
-          userMessage: context + '\n\nPor favor, faça a análise operacional do meu roteiro semanal.',
-        }),
-      });
-
-      data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Erro ao gerar análise.');
-      }
-    }
-
+    const promptMessage = context + '\n\nPor favor, faça a análise operacional do meu roteiro semanal.';
+    const data = await callGeminiWithProxyFallback(systemPrompt, promptMessage, localKey, false);
     const reply = data.text || 'Resumo operacional concluído com base nos dados do sistema.';
     downloadReportPDF(reply);
   } catch (e) {
@@ -6163,43 +6172,23 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
     }
 
     let data;
-    if (localKey) {
-      data = await callGeminiDirect(systemPrompt, contents, localKey);
-    } else {
-      const sessionRes = await _supabase.auth.getSession();
-      const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
-      const res = await fetch(API_ENDPOINT, {
-        method:  'POST',
-        headers: {
-          'Content-Type':     'application/json',
-          'x-client-api-key': '',
-          'Authorization':    `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          systemPrompt,
-          userMessage: context + '\n\nPergunta do usuário: ' + userMsg,
-          contents: contents
-        }),
-      });
-
-      if (!res.ok) {
-        const rawData = await res.json();
-        const errMsg = rawData?.error || 'Erro desconhecido da API.';
-        typingEl.remove();
-        if (res.status === 401 || res.status === 403) {
-          addAIMessage('error', '🔑 Chave do Google inválida ou expirada. Clique em <strong>⚙ API</strong> e insira uma chave válida.');
-          setStatus(false);
-        } else if (res.status === 429) {
-          addAIMessage('error', '⏳ Muitas requisições ao servidor de IA. Aguarde alguns segundos e tente novamente.');
-        } else if (res.status >= 500) {
-          addAIMessage('error', '💡 Erro no servidor de IA. Tente novamente mais tarde.');
-        } else {
-          addAIMessage('error', `Erro ${res.status}: ${errMsg}`);
-        }
-        btn.disabled = false;
-        return;
+    try {
+      data = await callGeminiWithProxyFallback(systemPrompt, contents, localKey, true);
+    } catch (proxyError) {
+      const errMsg = proxyError?.message || 'Erro desconhecido da API.';
+      typingEl.remove();
+      if (proxyError.status === 401 || proxyError.status === 403) {
+        addAIMessage('error', '🔑 Chave do Google inválida ou expirada. Clique em <strong>⚙ API</strong> e insira uma chave válida.');
+        setStatus(false);
+      } else if (proxyError.status === 429) {
+        addAIMessage('error', '⏳ Muitas requisições ao servidor de IA. Aguarde alguns segundos e tente novamente.');
+      } else if (proxyError.status >= 500) {
+        addAIMessage('error', '💡 Erro no servidor de IA. Tente novamente mais tarde.');
+      } else {
+        addAIMessage('error', `Erro ao chamar o servidor de IA: ${errMsg}`);
       }
-      data = await res.json();
+      btn.disabled = false;
+      return;
     }
 
     const reply = data.text || 'Não consegui processar a resposta.';
@@ -6234,7 +6223,8 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
     }
   } catch (e) {
     typingEl.remove();
-    addAIMessage('error', '⚠️ Não foi possível conectar ao servidor de IA.<br>Verifique a sua conexão com a internet ou se a sua chave da API está correta.');
+    const message = e?.message || 'Não foi possível conectar ao servidor de IA.';
+    addAIMessage('error', `⚠️ ${message}`);
     console.error('Erro de conexão:', e);
   }
 
