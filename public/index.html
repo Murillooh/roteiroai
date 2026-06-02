@@ -1772,6 +1772,168 @@
     color: var(--text);
     font-family: 'Goldman', sans-serif;
   }
+
+  /* ── PRELOADER ── */
+  .preloader-container {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+    opacity: 1;
+    visibility: visible;
+  }
+  .preloader-container.fade-out {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  .preloader-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(169,227,75,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(169,227,75,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .preloader-scan {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(transparent 0%, rgba(169,227,75,0.04) 50%, transparent 100%);
+    background-size: 100% 200%;
+    animation: scanMove 3s ease-in-out infinite;
+  }
+  @keyframes scanMove {
+    0%, 100% { background-position: 0 -100%; }
+    50% { background-position: 0 100%; }
+  }
+  .preloader-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+  }
+  .preloader-orb-1 {
+    width: 400px; height: 400px;
+    background: rgba(169,227,75,0.06);
+    top: -100px; left: -100px;
+  }
+  .preloader-orb-2 {
+    width: 300px; height: 300px;
+    background: rgba(177,151,252,0.05);
+    bottom: -80px; right: -80px;
+  }
+  .preloader-orb-3 {
+    width: 200px; height: 200px;
+    background: rgba(116,192,252,0.04);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .preloader-corner {
+    position: absolute;
+    width: 20px; height: 20px;
+    border-color: rgba(169,227,75,0.4);
+    border-style: solid;
+  }
+  .preloader-corner.tl { top: 20px; left: 20px; border-width: 2px 0 0 2px; }
+  .preloader-corner.tr { top: 20px; right: 20px; border-width: 2px 2px 0 0; }
+  .preloader-corner.bl { bottom: 20px; left: 20px; border-width: 0 0 2px 2px; }
+  .preloader-corner.br { bottom: 20px; right: 20px; border-width: 0 2px 2px 0; }
+  .preloader-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+    text-align: center;
+  }
+  .preloader-logo {
+    font-family: 'Goldman', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: var(--text);
+  }
+  .preloader-logo span { color: var(--ai); }
+  .preloader-tagline {
+    font-size: 12px;
+    color: var(--sub);
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+  }
+  .preloader-ring-wrapper {
+    position: relative;
+    width: 120px; height: 120px;
+  }
+  .preloader-ring-svg {
+    width: 100%; height: 100%;
+    transform: rotate(-90deg);
+  }
+  .preloader-ring-track {
+    fill: none;
+    stroke: rgba(169,227,75,0.1);
+    stroke-width: 6;
+  }
+  .preloader-ring-fill {
+    fill: none;
+    stroke: var(--ai);
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.1s linear;
+    filter: drop-shadow(0 0 8px rgba(169,227,75,0.6));
+  }
+  .preloader-ring-inner {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(169,227,75,0.08) 0%, transparent 70%);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.9); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  }
+  .preloader-ring-pct {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Goldman', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ai);
+  }
+  .preloader-bar-wrapper {
+    width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+  }
+  .preloader-bar-bg {
+    width: 100%;
+    height: 3px;
+    background: rgba(169,227,75,0.1);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .preloader-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ai), #74c0fc);
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.1s linear;
+    box-shadow: 0 0 8px rgba(169,227,75,0.5);
+  }
+  .preloader-status {
+    font-size: 10px;
+    color: var(--sub);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
 </style>
 </head>
 <body class="logged-out" data-mobile-view="agenda">
