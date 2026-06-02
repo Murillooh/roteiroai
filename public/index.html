@@ -1828,12 +1828,12 @@
       padding: 0 16px;
       justify-content: space-between;
     }
-    .topbar-divider, .topbar-week, #statusText {
+    .topbar-divider, .topbar-week {
       display: none !important;
     }
     .topbar-status {
       margin-left: 8px;
-      gap: 0 !important;
+      gap: 6px !important;
     }
     
     .sidebar {
@@ -1860,8 +1860,22 @@
     .mobile-back-btn {
       display: flex;
     }
-    .bottom-nav {
+     .bottom-nav {
       display: flex;
+      bottom: -1px;
+      left: 0;
+      transform: none;
+      width: 100%;
+      max-width: none;
+      border-radius: 0;
+      border-left: none;
+      border-right: none;
+      border-bottom: none;
+      height: calc(64px + env(safe-area-inset-bottom, 0px));
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    .bottom-nav-btn {
+      margin-top: 0;
     }
 
     /* Control views based on data-mobile-view on body */
@@ -2657,7 +2671,7 @@
     
     <!-- Daily View Container -->
     <div id="dailyView" style="display:flex; flex-direction:column; gap:20px;">
-      <button class="mobile-back-btn" onclick="switchMobileView('agenda')">← Voltar para Agenda</button>
+
       <div class="day-header">
         <div class="day-accent-bar" id="accentBar"></div>
         <div>
@@ -2782,11 +2796,13 @@
 
     <!-- Configurations View Container -->
     <div id="configView" style="display:none; flex-direction:column; gap:20px;" class="dashboard-container">
-      <button class="mobile-back-btn" onclick="switchMobileView('agenda')">← Voltar para Agenda</button>
-      <div class="db-header">
-        <h2 class="db-title">Configurações</h2>
-        <p class="db-subtitle">Gerencie seu perfil e personalize o aplicativo</p>
-      </div>
+      
+      <!-- Seção Principal de Configurações -->
+      <div id="configMainContent" style="display:flex; flex-direction:column; gap:20px; width:100%;">
+        <div class="db-header">
+          <h2 class="db-title">Configurações</h2>
+          <p class="db-subtitle">Gerencie seu perfil e personalize o aplicativo</p>
+        </div>
 
       <!-- Statistics Row -->
       <div style="display: flex; gap: 12px; margin-bottom: 4px;">
@@ -3023,8 +3039,18 @@
         </div>
       </div>
 
-      <!-- App Version -->
-      <div style="text-align: center; padding: 8px 0 4px; color: var(--sub); font-size: 10px; opacity: 0.5;">TarefasIA v1.0 · Feito com ✦ e Gemini</div>
+        <!-- App Version -->
+        <div style="text-align: center; padding: 8px 0 4px; color: var(--sub); font-size: 10px; opacity: 0.5;">TarefasIA V1.0 · Munago Desenvolvedora de Software</div>
+      </div>
+
+      <!-- Seção de Detalhes da Configuração (Subtelas) -->
+      <div id="configDetailsContent" style="display:none; flex-direction:column; gap:20px; width:100%;">
+        <button class="mobile-back-btn" onclick="showConfigMain()" style="display: flex !important; margin-bottom: 12px;">← Voltar para Configurações</button>
+        <div class="db-box" style="padding: 24px; border-radius: 16px; min-height: 250px; text-align: left; background: var(--surface); border: 1px solid var(--border);">
+          <h3 id="configDetailsTitle" style="font-family: 'Goldman', sans-serif; font-size: 16px; color: var(--text); display: flex; align-items: center; gap: 8px;"></h3>
+          <div id="configDetailsBody" style="font-size: 13px; color: var(--text); line-height: 1.6; margin-top: 16px;"></div>
+        </div>
+      </div>
 
     </div>
 
@@ -3141,6 +3167,12 @@
   const noAnims = localStorage.getItem('roteiroai_no_animations') === 'true';
   if (noAnims) {
     document.body.classList.add('no-animations');
+  }
+
+  // Detect and tag native Capacitor app
+  const isCapacitor = !!(window.Capacitor && window.Capacitor.isNative);
+  if (isCapacitor) {
+    document.body.classList.add('is-capacitor');
   }
 })();
 
@@ -3990,6 +4022,7 @@ function setActiveDay(id) {
     if (searchView) searchView.style.display = 'none';
     if (configView) {
       configView.style.display = 'flex';
+      showConfigMain();
       renderConfigScreen();
     }
     if (window.innerWidth <= 992) {
@@ -4241,12 +4274,86 @@ function toggleNotification(type, isEnabled) {
 }
 
 // ── Account Settings ──────────────────────────────────────────────────────────
+// ── Helper Navigation for Configurations ──────────────────────────────────────
+function showConfigMain() {
+  document.getElementById('configMainContent').style.display = 'flex';
+  document.getElementById('configDetailsContent').style.display = 'none';
+}
+
+function showConfigDetails(title, bodyHTML) {
+  document.getElementById('configDetailsTitle').innerHTML = title;
+  document.getElementById('configDetailsBody').innerHTML = bodyHTML;
+  document.getElementById('configMainContent').style.display = 'none';
+  document.getElementById('configDetailsContent').style.display = 'flex';
+}
+
+function submitFeedbackForm() {
+  const textarea = document.getElementById('feedbackTextarea');
+  const text = textarea ? textarea.value.trim() : '';
+  if (!text) {
+    alert('Por favor, digite seu feedback antes de enviar.');
+    return;
+  }
+  
+  showConfigDetails('💬 Feedback Enviado', `
+    <div style="text-align: center; padding: 24px 0;">
+      <span style="font-size: 40px; display: block; margin-bottom: 12px;">✅</span>
+      <h4 style="font-size: 15px; margin-bottom: 8px; color: var(--text); font-family: 'Goldman', sans-serif;">Feedback recebido!</h4>
+      <p style="color: var(--sub); font-size: 12px; margin-bottom: 20px; max-width: 280px; margin-left: auto; margin-right: auto; line-height: 1.5;">Obrigado por nos ajudar a melhorar o TarefasIA. Nossa equipe analisará sua sugestão.</p>
+      <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 8px 16px; border-radius: 8px; font-size: 11px;">Voltar para Configurações</button>
+    </div>
+  `);
+}
+
+// ── Account Settings ──────────────────────────────────────────────────────────
 function openSecuritySettings() {
-  alert('🔒 Segurança\n\nSua conta é protegida pela autenticação do Google OAuth 2.0.\nPara alterar sua senha ou configurar autenticação em dois fatores, acesse as configurações da sua conta Google.');
+  showConfigDetails('🔒 Segurança', `
+    <p style="margin-bottom: 12px;">Sua conta e seus dados estão totalmente protegidos no TarefasIA:</p>
+    <ul style="list-style-type: none; padding-left: 0; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+      <li style="display: flex; gap: 8px;"><span style="color: var(--ai);">✦</span> <span><strong>Autenticação Segura:</strong> Acesso autenticado de ponta a ponta usando a infraestrutura do Google OAuth 2.0.</span></li>
+      <li style="display: flex; gap: 8px;"><span style="color: var(--ai);">✦</span> <span><strong>Armazenamento Criptografado:</strong> Todos os seus dados são guardados no Supabase com Row Level Security (RLS) ativo.</span></li>
+    </ul>
+    <p style="padding: 12px; background: rgba(255, 169, 77, 0.08); border-left: 3px solid var(--orange); border-radius: 6px; font-size: 12px; color: var(--orange); line-height: 1.5; margin-bottom: 16px;">
+      <strong>Nota sobre alteração de senha:</strong> Como você utiliza sua conta do Google para fazer login, para alterar sua senha ou configurar a autenticação de dois fatores, você deve acessar diretamente o painel de segurança da sua conta Google.
+    </p>
+    <div style="display: flex; gap: 8px;">
+      <a href="https://myaccount.google.com/security" target="_blank" class="btn-modal primary" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; font-size: 11px; display: inline-flex; align-items: center;">Acessar Conta Google</a>
+      <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 10px 16px; border-radius: 8px; font-size: 11px;">Voltar</button>
+    </div>
+  `);
 }
 
 function openIntegrationsSettings() {
-  alert('🔗 Integrações Ativas\n\n✅ Google (OAuth & Calendar)\n✅ Notion (Sincronização de tarefas)\n✅ Slack (Notificações de equipe)\n\nPara gerenciar suas integrações, entre em contato com o suporte.');
+  showConfigDetails('🔗 Integrações Ativas', `
+    <p style="margin-bottom: 14px;">TarefasIA está integrado com ferramentas externas para otimizar seu fluxo de trabalho:</p>
+    <ul style="list-style-type: none; padding-left: 0; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+      <li style="display: flex; align-items: flex-start; gap: 10px;">
+        <span style="font-size: 14px; line-height: 1;">🟢</span>
+        <div>
+          <strong>Google OAuth & Calendar:</strong>
+          <p style="font-size: 11.5px; color: var(--sub); margin-top: 2px;">Permite login rápido com um clique e sincronização automatizada de rotas diretamente na sua agenda.</p>
+        </div>
+      </li>
+      <li style="display: flex; align-items: flex-start; gap: 10px;">
+        <span style="font-size: 14px; line-height: 1;">🟢</span>
+        <div>
+          <strong>Notion Sync:</strong>
+          <p style="font-size: 11.5px; color: var(--sub); margin-top: 2px;">Exporta e espelha o seu roteiro de tarefas em blocos e tabelas dentro do seu workspace do Notion.</p>
+        </div>
+      </li>
+      <li style="display: flex; align-items: flex-start; gap: 10px;">
+        <span style="font-size: 14px; line-height: 1;">🟢</span>
+        <div>
+          <strong>Slack Channel:</strong>
+          <p style="font-size: 11.5px; color: var(--sub); margin-top: 2px;">Envia notificações automáticas e resumos de atividades do dia diretamente em canais de equipes do Slack.</p>
+        </div>
+      </li>
+    </ul>
+    <p style="font-size: 11px; color: var(--sub); margin-bottom: 16px; line-height: 1.4;">
+      * Para gerenciar as chaves de conexão destas integrações ou configurar novos canais de webhook personalizados, por favor contate o suporte.
+    </p>
+    <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 8px 16px; border-radius: 8px; font-size: 11px;">Voltar para Configurações</button>
+  `);
 }
 
 function exportUserData() {
@@ -4291,18 +4398,55 @@ function exportUserData() {
 
 // ── Support Settings ──────────────────────────────────────────────────────────
 function openHelpCenter() {
-  alert('📖 Central de Ajuda\n\n• Use a aba Agenda para navegar entre os dias da semana\n• Toque em uma tarefa concluída para ver detalhes\n• O Chat IA responde perguntas sobre seu roteiro\n• Gere PDFs diretos pelo chat ou pelo dashboard\n• Personalize cores e tema nas Configurações\n\nDúvidas? Envie um feedback pelo app.');
+  showConfigDetails('📖 Central de Ajuda', `
+    <p style="margin-bottom: 14px; font-weight: 500;">Guia rápido para aproveitar ao máximo o TarefasIA:</p>
+    <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
+      <div>
+        <h5 style="color: var(--ai); font-size: 13px; font-family: 'Goldman', sans-serif; margin-bottom: 4px;">📅 Agenda e Calendário</h5>
+        <p style="font-size: 12px; color: var(--sub); line-height: 1.4;">Use a aba <strong>Agenda</strong> na navegação inferior para se movimentar pelos dias da semana. Toque em qualquer tarefa para ver notas extras ou para definir horários detalhados.</p>
+      </div>
+      <div>
+        <h5 style="color: var(--ai); font-size: 13px; font-family: 'Goldman', sans-serif; margin-bottom: 4px;">✦ Inteligência Artificial (Chat)</h5>
+        <p style="font-size: 12px; color: var(--sub); line-height: 1.4;">O painel da IA auxilia na análise de roteiros. Você pode digitar mensagens, usar comandos por voz ou tocar nos botões de ação rápida para resumir as atividades do seu dia.</p>
+      </div>
+      <div>
+        <h5 style="color: var(--ai); font-size: 13px; font-family: 'Goldman', sans-serif; margin-bottom: 4px;">📊 Dashboard e Relatórios</h5>
+        <p style="font-size: 12px; color: var(--sub); line-height: 1.4;">A aba <strong>Dash</strong> traz dados consolidados da sua semana, gráficos de produtividade por dia e possibilita exportar lindos relatórios em formato PDF.</p>
+      </div>
+      <div>
+        <h5 style="color: var(--ai); font-size: 13px; font-family: 'Goldman', sans-serif; margin-bottom: 4px;">⚙ Personalização</h5>
+        <p style="font-size: 12px; color: var(--sub); line-height: 1.4;">Nas Configurações você pode escolher sua cor de destaque favorita para o painel, ligar ou desligar o modo escuro, e ajustar o tamanho dos textos das tarefas.</p>
+      </div>
+    </div>
+    <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 8px 16px; border-radius: 8px; font-size: 11px;">Voltar para Configurações</button>
+  `);
 }
 
 function openFeedbackForm() {
-  const feedback = prompt('💬 Enviar Feedback\n\nDigite sua sugestão, elogio ou reporte de problema:');
-  if (feedback && feedback.trim()) {
-    alert('✅ Feedback enviado com sucesso!\n\nObrigado por nos ajudar a melhorar o TarefasIA.');
-  }
+  showConfigDetails('💬 Enviar Feedback', `
+    <p style="margin-bottom: 12px; line-height: 1.5;">O que você gostaria de nos dizer? Seu feedback é fundamental para o aprimoramento constante do TarefasIA.</p>
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+      <textarea id="feedbackTextarea" placeholder="Escreva aqui sua sugestão, crítica, elogio ou reporte de erro..." style="width: 100%; height: 120px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 12px; font-family: inherit; font-size: 12.5px; outline: none; resize: none; box-sizing: border-box; line-height: 1.5; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ai)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn-modal primary" onclick="submitFeedbackForm()" style="padding: 10px 18px; border-radius: 8px; font-size: 11px;">Enviar Mensagem</button>
+      <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 10px 18px; border-radius: 8px; font-size: 11px;">Cancelar</button>
+    </div>
+  `);
 }
 
 function openTermsAndPrivacy() {
-  alert('📄 Termos e Privacidade\n\nTarefasIA v1.0\n\n• Seus dados são armazenados no Supabase com criptografia\n• A autenticação é feita via Google OAuth 2.0\n• Não compartilhamos seus dados com terceiros\n• As análises da IA são processadas via Google Gemini\n• Você pode exportar ou excluir seus dados a qualquer momento\n\n© 2024-2026 TarefasIA. Todos os direitos reservados.');
+  showConfigDetails('📄 Termos e Privacidade', `
+    <p style="margin-bottom: 12px; font-weight: bold; color: var(--ai); font-family: 'Goldman', sans-serif;">TarefasIA V1.0 · Munago Desenvolvedora de Software</p>
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; font-size: 12.5px; color: var(--sub); line-height: 1.5; max-height: 250px; overflow-y: auto; padding-right: 8px;">
+      <p><strong>1. Armazenamento de Dados:</strong> Suas informações são guardadas de forma segura em servidores na nuvem (Supabase). Seus dados não são vendidos ou expostos.</p>
+      <p><strong>2. Uso do Google Gemini:</strong> Para gerar as análises inteligentes de rotas e resumos diários, enviamos o texto de suas tarefas aos servidores do Google Gemini por meio de conexões criptografadas seguras.</p>
+      <p><strong>3. Integração com Calendar:</strong> O acesso solicitado à sua conta Google destina-se exclusivamente para autenticação de usuário e, quando habilitado, para inserção de eventos em sua agenda pessoal.</p>
+      <p><strong>4. Exportação e Exclusão:</strong> Você tem total autonomia para exportar um backup JSON de todas as suas informações de tarefas e configurações locais. Caso queira deletar permanentemente seus dados do nosso banco de dados, você pode acionar a remoção de conta.</p>
+    </div>
+    <p style="font-size: 10px; color: var(--muted); margin-bottom: 16px;">© 2024-2026 TarefasIA · Munago Desenvolvedora de Software. Todos os direitos reservados.</p>
+    <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 8px 16px; border-radius: 8px; font-size: 11px;">Voltar para Configurações</button>
+  `);
 }
 
 // ── Renderização do Dashboard ─────────────────────────────────────────────────
@@ -5152,7 +5296,7 @@ function downloadReportPDF(aiText) {
 
   const footer1HTML = `
     <div style="margin-top: 25px; border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-      <span>Dash • Inteligência e Controle Operacional</span>
+      <span>TarefasIA • Inteligência e Controle Operacional</span>
       <span>Página 1 de 2</span>
     </div>
   `;
@@ -5212,7 +5356,7 @@ function downloadReportPDF(aiText) {
 
   const footer2HTML = `
     <div style="margin-top: 25px; border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-      <span>Dash • Inteligência e Controle Operacional</span>
+      <span>TarefasIA • Inteligência e Controle Operacional</span>
       <span>Página 2 de 2</span>
     </div>
   `;
@@ -5408,7 +5552,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           ${aiHTML}
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>Dash • Relatório Diário Operacional</span>
+          <span>TarefasIA • Relatório Diário Operacional</span>
           <span>Página 1 de 1</span>
         </div>
       </div>
@@ -5579,7 +5723,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           ${aiHTML}
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>Dash • Relatório Semanal Operacional</span>
+          <span>TarefasIA • Relatório Semanal Operacional</span>
           <span>Página 1 de 2</span>
         </div>
       </div>
@@ -5601,7 +5745,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           </div>
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>Dash • Relatório Semanal Operacional</span>
+          <span>TarefasIA • Relatório Semanal Operacional</span>
           <span>Página 2 de 2</span>
         </div>
       </div>
@@ -5722,7 +5866,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           </p>
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>Dash • Relatório Mensal Operacional</span>
+          <span>TarefasIA • Relatório Mensal Operacional</span>
           <span>Página 1 de 2</span>
         </div>
       </div>
@@ -5739,7 +5883,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
           </div>
         </div>
         <div style="border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
-          <span>Dash • Relatório Mensal Operacional</span>
+          <span>TarefasIA • Relatório Mensal Operacional</span>
           <span>Página 2 de 2</span>
         </div>
       </div>
