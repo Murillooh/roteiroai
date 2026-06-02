@@ -78,11 +78,16 @@ app.post('/api/chat', async (req, res) => {
 
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
 
+  const normalizedContents = Array.isArray(contents) ? contents.map(message => ({
+    ...message,
+    role: message.role === 'model' ? 'assistant' : message.role
+  })) : contents;
+
   const payload = {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
     },
-    contents: contents || [
+    contents: Array.isArray(normalizedContents) && normalizedContents.length > 0 ? normalizedContents : [
       { role: 'user', parts: [{ text: userMessage }] }
     ],
     generationConfig: {
@@ -102,7 +107,21 @@ app.post('/api/chat', async (req, res) => {
 
     if (!response.ok) {
       const errMsg = data?.error?.message || 'Erro desconhecido.';
-      return res.status(response.status).json({ error: errMsg, status: response.status });
+      let userMessage = errMsg;
+
+      if (response.status === 401 || response.status === 403) {
+        userMessage = 'Chave da API do Gemini inválida ou expirada. Verifique sua configuração.';
+      } else if (response.status === 429) {
+        userMessage = 'Limite de requisições atingido. Aguarde alguns segundos e tente novamente.';
+      } else if (response.status >= 500) {
+        userMessage = 'Erro no servidor do Gemini. Tente novamente mais tarde.';
+      }
+
+      return res.status(response.status).json({
+        error: userMessage,
+        detail: errMsg,
+        status: response.status
+      });
     }
 
     // Extrai o texto da resposta do Gemini
@@ -111,7 +130,7 @@ app.post('/api/chat', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Erro ao chamar Gemini:', err.message);
-    res.status(500).json({ error: 'Falha ao conectar com a API do Google: ' + err.message });
+    res.status(500).json({ error: 'Falha ao conectar com a API do Google.', detail: err.message });
   }
 });
 

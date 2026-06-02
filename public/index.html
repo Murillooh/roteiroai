@@ -3064,9 +3064,10 @@
       <div>
         <div class="ai-title">Assistente <span>IA</span></div>
       </div>
-      <button onclick="clearChatHistory()" style="background:none; border:none; color:var(--sub); cursor:pointer; font-size:11px; margin-left:auto; margin-right:8px; display:flex; align-items:center; gap:4px; opacity:0.6; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Limpar Histórico">
-        🗑️ Limpar
+      <button onclick="clearChatHistory()" style="background:none; border:none; color:var(--sub); cursor:pointer; font-size:11px; margin-left:auto; margin-right:8px; display:flex; align-items:center; gap:4px; opacity:0.6; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Nova conversa">
+        🆕 Nova conversa
       </button>
+      <div id="aiHistoryCount" style="font-size:11px; color:var(--sub); margin-right:8px; align-self:center; opacity:0.8; white-space:nowrap;">0 / 20 mensagens</div>
       <div class="ai-model-badge">gemini-3.1-flash-lite</div>
     </div>
 
@@ -3220,9 +3221,14 @@ async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
     },
-    contents: Array.isArray(userMessageOrContents) ? userMessageOrContents : [
-      { role: 'user', parts: [{ text: userMessageOrContents }] }
-    ],
+    contents: Array.isArray(userMessageOrContents)
+      ? userMessageOrContents.map(m => ({
+          ...m,
+          role: m.role === 'model' ? 'assistant' : m.role
+        }))
+      : [
+          { role: 'user', parts: [{ text: userMessageOrContents }] }
+        ],
     generationConfig: {
       maxOutputTokens: 1000,
       temperature: 0.7,
@@ -3836,8 +3842,27 @@ function loadChatHistory() {
     try {
       chatHistory = JSON.parse(saved);
       if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+        chatHistory = chatHistory.map(m => {
+          if (m && Array.isArray(m.parts)) {
+            return {
+              role: m.role === 'assistant' ? 'model' : m.role,
+              parts: m.parts,
+              isReport: m.isReport,
+              fileConfig: m.fileConfig
+            };
+          }
+          return {
+            role: m.role === 'assistant' ? 'model' : m.role,
+            parts: [{ text: m.text || '' }],
+            isReport: m.isReport,
+            fileConfig: m.fileConfig
+          };
+        });
+
         chatHistory.forEach(m => {
-          addAIMessage(m.role, m.text, false, m.isReport, m.fileConfig, true);
+          const displayRole = m.role === 'model' ? 'assistant' : m.role;
+          const text = m.parts.map(p => p.text || '').join('');
+          addAIMessage(displayRole, text, false, m.isReport, m.fileConfig, true);
         });
       }
     } catch (e) {
@@ -3848,6 +3873,8 @@ function loadChatHistory() {
   if (chatHistory.length === 0) {
     showWelcomeMessage();
   }
+
+  updateChatHistoryCounter();
 }
 
 function clearChatHistory() {
@@ -3861,6 +3888,7 @@ function clearChatHistory() {
   if (msgs) msgs.innerHTML = '';
   
   showWelcomeMessage();
+  updateChatHistoryCounter();
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -5203,11 +5231,20 @@ function addAIMessage(role, text, isTyping = false, isReport = false, fileConfig
 
   // Persiste a mensagem no histórico do chat do usuário
   if (!isTyping && !skipSave && currentUser) {
-    chatHistory.push({ role, text, isReport, fileConfig });
+    const storedRole = role === 'assistant' ? 'model' : role;
+    chatHistory.push({ role: storedRole, parts: [{ text }], isReport, fileConfig });
     localStorage.setItem(`chat_history_${currentUser.id}`, JSON.stringify(chatHistory));
+    updateChatHistoryCounter();
   }
 
   return div;
+}
+
+function updateChatHistoryCounter() {
+  const counter = document.getElementById('aiHistoryCount');
+  if (!counter) return;
+  const count = chatHistory.filter(m => m.role === 'user' || m.role === 'model').length;
+  counter.textContent = `${count} / 20 mensagens`;
 }
 
 // ── Geração do PDF Corporativo Elegante com Dashboard Integrado ──────────────────
@@ -6096,22 +6133,24 @@ Em seguida, escreva o texto normal da sua análise ou resumo correspondente ao p
 Aqui está o relatório mensal detalhado para Junho de 2026...`;
 
   try {
-    // Constrói o histórico de mensagens formatado para a API do Gemini (limita às últimas 10)
+    // Constrói o histórico de mensagens formatado para a API do Gemini usando o campo contents
+    // e limita o histórico a no máximo 20 mensagens para evitar estouro de tokens.
     const contents = [];
-    const historyForAPI = chatHistory.filter(m => m.role === 'user' || m.role === 'assistant').slice(-10);
+    const historyForAPI = chatHistory.filter(m => m.role === 'user' || m.role === 'model').slice(-20);
     
     historyForAPI.forEach((m, idx) => {
       const isLast = idx === historyForAPI.length - 1;
-      let text = m.text;
+      const text = m.parts.map(p => p.text || '').join('');
+      let messageText = text;
       
-      // Injeta o contexto semanal completo na última mensagem (pergunta atual do usuário)
+      // Injeta o contexto semanal completo na última mensagem do usuário
       if (isLast && m.role === 'user') {
-        text = context + '\n\nPergunta do usuário: ' + text;
+        messageText = context + '\n\nPergunta do usuário: ' + text;
       }
       
       contents.push({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: text }]
+        role: m.role === 'model' ? 'assistant' : m.role,
+        parts: [{ text: messageText }]
       });
     });
 
@@ -6150,6 +6189,10 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
         if (res.status === 401 || res.status === 403) {
           addAIMessage('error', '🔑 Chave do Google inválida ou expirada. Clique em <strong>⚙ API</strong> e insira uma chave válida.');
           setStatus(false);
+        } else if (res.status === 429) {
+          addAIMessage('error', '⏳ Muitas requisições ao servidor de IA. Aguarde alguns segundos e tente novamente.');
+        } else if (res.status >= 500) {
+          addAIMessage('error', '💡 Erro no servidor de IA. Tente novamente mais tarde.');
         } else {
           addAIMessage('error', `Erro ${res.status}: ${errMsg}`);
         }
