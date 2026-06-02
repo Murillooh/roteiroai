@@ -3771,7 +3771,15 @@ async function init() {
   // Verifica se o servidor já tem a chave configurada no .env
   let serverHasKey = false;
   try {
-    const res = await fetch(`${BASE_URL}/api/status`);
+    let headers = {};
+    if (typeof _supabase !== 'undefined') {
+      const sessionRes = await _supabase.auth.getSession();
+      const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+    const res = await fetch(`${BASE_URL}/api/status`, { headers });
     const data = await res.json();
     serverHasKey = data.serverHasKey === true;
   } catch (e) {
@@ -4977,11 +4985,14 @@ ${targetTask.time ? 'Horário programado: ' + targetTask.time : ''}`;
     if (localKey) {
       data = await callGeminiDirect(systemPrompt, userMessage, localKey);
     } else {
+      const sessionRes = await _supabase.auth.getSession();
+      const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
       const res = await fetch(API_ENDPOINT, {
         method:  'POST',
         headers: {
           'Content-Type':     'application/json',
           'x-client-api-key': '',
+          'Authorization':    `Bearer ${token}`,
         },
         body: JSON.stringify({
           systemPrompt,
@@ -5984,11 +5995,14 @@ Responda em português brasileiro de forma profissional e direta.`;
     if (localKey) {
       data = await callGeminiDirect(systemPrompt, context + '\n\nPor favor, faça a análise operacional do meu roteiro semanal.', localKey);
     } else {
+      const sessionRes = await _supabase.auth.getSession();
+      const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
       const res = await fetch(API_ENDPOINT, {
         method:  'POST',
         headers: {
           'Content-Type':     'application/json',
           'x-client-api-key': '',
+          'Authorization':    `Bearer ${token}`,
         },
         body: JSON.stringify({
           systemPrompt,
@@ -6113,11 +6127,14 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
     if (localKey) {
       data = await callGeminiDirect(systemPrompt, contents, localKey);
     } else {
+      const sessionRes = await _supabase.auth.getSession();
+      const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
       const res = await fetch(API_ENDPOINT, {
         method:  'POST',
         headers: {
           'Content-Type':     'application/json',
           'x-client-api-key': '',
+          'Authorization':    `Bearer ${token}`,
         },
         body: JSON.stringify({
           systemPrompt,
