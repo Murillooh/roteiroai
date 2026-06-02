@@ -5414,7 +5414,7 @@ function showPDFOptions(type, date, title, aiText, reportType) {
   }
 }
 
-// Compartilhar via WhatsApp
+// Compartilhar via WhatsApp com arquivo PDF real
 async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
   try {
     // Gera o PDF primeiro
@@ -5455,32 +5455,11 @@ async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
       element.parentNode.removeChild(element);
     }
 
-    // Compartilhar via Capacitor Share ou WhatsApp Web
+    // Compartilhar via Capacitor (Android) ou desktop
     if (window.Capacitor && window.Capacitor.isNative) {
-      try {
-        console.log('🔵 Compartilhando via Capacitor Share (nativo)...');
-        const { Share } = window.Capacitor.Plugins;
-        const base64 = await blobToBase64(pdfBlob);
-        
-        // Tenta compartilhar direto com o blob
-        await Share.share({
-          title: 'Relatório de Tarefas',
-          text: 'Confira meu relatório de tarefas gerado pela IA 📊',
-          files: [{
-            data: base64,
-            mimeType: 'application/pdf',
-            fileName: fileName
-          }]
-        });
-        console.log('✅ Compartilhado via WhatsApp (nativo)');
-      } catch (nativeErr) {
-        console.warn('⚠️ Compartilhamento nativo falhou:', nativeErr);
-        // Fallback para WhatsApp Web
-        shareViaWhatsAppWeb(fileName, aiText);
-      }
+      await shareViaCapacitorAndroid(pdfBlob, fileName);
     } else {
-      // Desktop - fallback para WhatsApp Web
-      shareViaWhatsAppWeb(fileName, aiText);
+      await shareViaDesktop(pdfBlob, fileName);
     }
   } catch (err) {
     console.error('❌ Erro ao compartilhar:', err);
@@ -5488,16 +5467,80 @@ async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
   }
 }
 
-// Compartilhar via WhatsApp Web (fallback para desktop)
-function shareViaWhatsAppWeb(fileName, aiText) {
-  const message = encodeURIComponent(
-    `📊 *Relatório de Tarefas IA*\n\n${aiText.substring(0, 200)}...\n\n` +
-    `📄 Arquivo: ${fileName}\n` +
-    `🔗 Verifique seu email ou downloads para abrir o PDF`
-  );
-  
-  window.open(`https://wa.me/?text=${message}`, '_blank');
-  alert('✅ WhatsApp aberto! Cole o arquivo PDF na conversa.');
+// Compartilhar via Capacitor (Android nativo)
+async function shareViaCapacitorAndroid(pdfBlob, fileName) {
+  try {
+    const { Filesystem, Directory, Share } = window.Capacitor.Plugins;
+    
+    console.log('🔵 Salvando PDF em Documents (Android)...');
+    const base64 = await blobToBase64(pdfBlob);
+    
+    // Salva o arquivo em Documents
+    await Filesystem.writeFile({
+      path: fileName,
+      data: base64,
+      directory: Directory.Documents,
+      recursive: true
+    });
+    console.log('✅ PDF salvo em Documents');
+
+    // Obtém a URL do arquivo salvo
+    const fileUri = await Filesystem.getUri({
+      directory: Directory.Documents,
+      path: fileName
+    });
+    
+    console.log('🔵 Compartilhando arquivo PDF via Share...');
+    await Share.share({
+      title: 'Relatório de Tarefas',
+      text: '📊 Confira meu relatório de tarefas gerado pela IA!',
+      url: fileUri.uri,
+      files: [fileUri.uri]
+    });
+    
+    console.log('✅ Arquivo compartilhado com sucesso');
+    alert('✅ PDF compartilhado! Abra o WhatsApp e selecione a conversa.');
+  } catch (err) {
+    console.error('❌ Erro no compartilhamento Capacitor:', err);
+    alert('❌ Erro ao compartilhar. Tente fazer download e compartilhar manualmente.');
+  }
+}
+
+// Compartilhar via Desktop (faz download e abre WhatsApp Web)
+async function shareViaDesktop(pdfBlob, fileName) {
+  try {
+    console.log('🔵 Preparando download do PDF...');
+    
+    // Cria link para download
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('✅ PDF baixado com sucesso');
+    
+    // Limpa URL
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.warn('Erro ao revogar URL:', e);
+      }
+    }, 60000);
+
+    // Abre WhatsApp Web
+    console.log('🔵 Abrindo WhatsApp Web...');
+    const message = encodeURIComponent('📊 Confira meu relatório de tarefas! 📎');
+    window.open(`https://web.whatsapp.com/send?text=${message}`, '_blank');
+    
+    alert('✅ PDF baixado! Abra o WhatsApp Web em outra aba e anexe o arquivo.');
+  } catch (err) {
+    console.error('❌ Erro ao compartilhar no desktop:', err);
+    alert('❌ Erro ao fazer download. Tente fazer download manual do PDF.');
+  }
 }
 
 // Funções auxiliares para criar elementos PDF
