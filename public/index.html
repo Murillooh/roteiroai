@@ -5280,7 +5280,7 @@ function updateChatHistoryCounter() {
 }
 
 // ── Geração do PDF Corporativo Elegante com Dashboard Integrado ──────────────────
-function downloadReportPDF(aiText) {
+async function downloadReportPDF(aiText) {
   const element = document.createElement('div');
   element.style.width = '210mm';
   element.style.fontFamily = "'Inter', sans-serif";
@@ -5509,9 +5509,43 @@ function downloadReportPDF(aiText) {
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
-  html2pdf().set(opt).from(element).save().then(() => {
-    element.remove();
-  });
+  await exportPDFElement(element, opt);
+}
+
+async function exportPDFElement(element, opt, loadingModal = null, originalTitle = '', originalDesc = '') {
+  const cleanup = () => {
+    if (element && element.parentNode) {
+      element.parentNode.removeChild(element);
+    }
+    if (loadingModal) {
+      loadingModal.style.display = 'none';
+      const modalTitle = loadingModal.querySelector('.modal-title');
+      const modalDesc = loadingModal.querySelector('.modal-desc');
+      if (modalTitle && originalTitle) modalTitle.innerHTML = originalTitle;
+      if (modalDesc && originalDesc) modalDesc.innerHTML = originalDesc;
+    }
+  };
+
+  try {
+    await html2pdf().set(opt).from(element).save();
+  } catch (err) {
+    console.warn('html2pdf save falhou, tentando fallback...', err);
+    try {
+      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (fallbackErr) {
+      console.error('Erro no fallback de PDF:', fallbackErr);
+      alert('Não foi possível gerar o PDF no seu dispositivo. Tente usar o app no navegador ou outro dispositivo.');
+    }
+  } finally {
+    cleanup();
+  }
 }
 
 async function downloadCustomPeriodPDF(type, date, title, aiText) {
@@ -6008,25 +6042,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
-  html2pdf().set(opt).from(element).save().then(() => {
-    element.remove();
-    if (loadingModal) {
-      loadingModal.style.display = 'none';
-      const modalTitle = loadingModal.querySelector('.modal-title');
-      const modalDesc = loadingModal.querySelector('.modal-desc');
-      if (modalTitle && originalTitle) modalTitle.innerHTML = originalTitle;
-      if (modalDesc && originalDesc) modalDesc.innerHTML = originalDesc;
-    }
-  }).catch(err => {
-    console.error('Erro ao salvar PDF:', err);
-    if (loadingModal) {
-      loadingModal.style.display = 'none';
-      const modalTitle = loadingModal.querySelector('.modal-title');
-      const modalDesc = loadingModal.querySelector('.modal-desc');
-      if (modalTitle && originalTitle) modalTitle.innerHTML = originalTitle;
-      if (modalDesc && originalDesc) modalDesc.innerHTML = originalDesc;
-    }
-  });
+  await exportPDFElement(element, opt, loadingModal, originalTitle, originalDesc);
 }
 
 // ── Exportação Rápida com IA via Dashboard ──────────────────────────────────────
