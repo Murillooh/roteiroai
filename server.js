@@ -98,7 +98,7 @@ app.post('/api/chat', async (req, res) => {
 
   const normalizedContents = Array.isArray(contents) ? contents.map(message => ({
     ...message,
-    role: message.role === 'model' ? 'assistant' : message.role
+    role: message.role === 'assistant' ? 'model' : message.role
   })) : contents;
 
   const payload = {
