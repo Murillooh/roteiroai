@@ -3021,19 +3021,7 @@
           </div>
         </div>
 
-        <!-- Item: Exportar dados -->
-        <div style="display: flex; align-items: center; padding: 14px 16px; cursor: pointer;" onclick="exportUserData()">
-          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(255, 169, 77, 0.08); color: var(--orange); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </div>
-          <div style="flex: 1; text-align: left;">
-            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Exportar dados</div>
-            <div id="exportDataSubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Baixar backup completo</div>
-          </div>
-          <div style="color: var(--sub); display: flex; align-items: center; margin-left: 8px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
+
       </div>
       <!-- Support Panel -->
       <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--sub); text-transform: uppercase; margin-top: 5px; margin-bottom: 5px; text-align: left;">Suporte</div>
@@ -4592,45 +4580,7 @@ function openIntegrationsSettings() {
   `);
 }
 
-function exportUserData() {
-  if (!currentUser) {
-    alert('Faça login para exportar seus dados.');
-    return;
-  }
-  
-  const exportObj = {
-    exportedAt: new Date().toISOString(),
-    user: {
-      id: currentUser.id,
-      email: currentUser.email,
-      name: (currentUser.user_metadata || {}).full_name || ''
-    },
-    tasks: tasks,
-    customDestinations: customDestinations || {},
-    settings: {
-      themeColor: localStorage.getItem('roteiroai_theme_color') || '#a9e34b',
-      lightTheme: localStorage.getItem('roteiroai_light_theme') === 'true',
-      textSize: localStorage.getItem('roteiroai_text_size') || 'medium',
-      noAnimations: localStorage.getItem('roteiroai_no_animations') === 'true'
-    }
-  };
-  
-  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `tarefasia_backup_${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  
-  const sub = document.getElementById('exportDataSubtitle');
-  if (sub) {
-    sub.textContent = '✅ Exportado com sucesso!';
-    setTimeout(() => { sub.textContent = 'Baixar backup completo'; }, 3000);
-  }
-}
+
 
 // ── Support Settings ──────────────────────────────────────────────────────────
 function openHelpCenter() {
