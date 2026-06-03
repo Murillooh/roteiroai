@@ -12,6 +12,19 @@ const rateLimit  = require('express-rate-limit');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
+// Configuração do LiveReload para desenvolvimento
+const livereload = require('livereload');
+const connectLivereload = require('connect-livereload');
+const liveReloadServer = livereload.createServer();
+liveReloadServer.watch(path.join(__dirname, 'public'));
+liveReloadServer.server.once("connection", () => {
+  setTimeout(() => {
+    liveReloadServer.refresh("/");
+  }, 100);
+});
+
+app.use(connectLivereload());
+
 app.use(cors());
 app.use(express.json());
 
