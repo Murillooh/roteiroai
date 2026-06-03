@@ -5598,6 +5598,8 @@ function createStandardPDFElement(aiText) {
   element.style.lineHeight = '1.5';
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -5642,6 +5644,8 @@ function createCustomPDFElement(type, date, title, aiText) {
   element.style.lineHeight = '1.5';
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -5685,6 +5689,8 @@ async function downloadReportPDF(aiText) {
   element.style.lineHeight = '1.5';
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -6032,6 +6038,8 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
   element.style.lineHeight = '1.5';
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -6585,6 +6593,8 @@ async function generateMonthlyPDF(userId, month, year) {
   element.style.color = '#e8e8e8';
   element.style.fontFamily = "'Inter', sans-serif";
   element.style.padding = '0';
+  element.style.position = 'absolute';
+  element.style.left = '-9999px';
   element.innerHTML = createMonthlyPDFTemplate(userName, monthName, year, taskGroups, summary, aiSummary);
   document.body.appendChild(element);
 
