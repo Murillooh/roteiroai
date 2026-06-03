@@ -365,6 +365,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
   }
   .ai-icon {
     width: 28px; height: 28px;
@@ -388,6 +389,8 @@
     border-radius: 20px;
     padding: 2px 8px;
     letter-spacing: 0.05em;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .ai-messages {
     flex: 1;
@@ -2660,10 +2663,7 @@
         <div class="stat-lbl">DIAS</div>
       </div>
     </div>
-    <div class="sidebar-divider"></div>
-    <div style="padding:0 20px; display:flex; justify-content:center;">
-      <button class="ai-quick-btn" style="width:100%; border-color:var(--border); opacity:0.7" onclick="resetToDefaultTasks()">⚡ Gerar 25 Tarefas Teste</button>
-    </div>
+
   </aside>
 
   <!-- MAIN -->
@@ -3069,7 +3069,7 @@
       <div>
         <div class="ai-title">Assistente <span>IA</span></div>
       </div>
-      <button onclick="clearChatHistory()" style="background:none; border:none; color:var(--sub); cursor:pointer; font-size:11px; margin-left:auto; margin-right:8px; display:flex; align-items:center; gap:4px; opacity:0.6; transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Nova conversa">
+      <button onclick="clearChatHistory()" style="background:none; border:none; color:var(--sub); cursor:pointer; font-size:11px; margin-left:auto; margin-right:8px; display:flex; align-items:center; gap:4px; opacity:0.6; transition:opacity 0.2s; white-space:nowrap; flex-shrink:0;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Nova conversa">
         🆕 Nova conversa
       </button>
       <div id="aiHistoryCount" style="font-size:11px; color:var(--sub); margin-right:8px; align-self:center; opacity:0.8; white-space:nowrap;">0 / 20 mensagens</div>
