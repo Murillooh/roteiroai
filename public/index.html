@@ -7037,65 +7037,29 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
       try {
         const taskData = JSON.parse(taskMatch[1]);
         const cleanReply = reply.replace(/\[TASK_CREATE:\s*({[\s\S]*?})\s*\]/, '').trim();
-        typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${cleanReply.replace(/\n/g, '<br>')}`;
-        addAIMessage('assistant', cleanReply, false, false, null, true); // save to history silently
+        typingEl.remove();
+        addAIMessage('assistant', cleanReply, false, false, null, false);
         await executeAITaskCreate(taskData);
       } catch (e) {
         console.error('Erro ao analisar JSON da tarefa da IA:', e);
-        typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${reply.replace(/\n/g, '<br>')}`;
-        addAIMessage('assistant', reply, false, false, null, true);
+        typingEl.remove();
+        addAIMessage('assistant', reply, false, false, null, false);
       }
     } else if (fileMatch) {
       try {
         const fileData = JSON.parse(fileMatch[1]);
         const cleanReply = reply.replace(/\[FILE_GENERATE:\s*({[\s\S]*?})\s*\]/, '').trim();
-        typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${cleanReply.replace(/\n/g, '<br>')}`;
-        
-        // Add PDF button to the existing streaming element
-        const pdfBtn = document.createElement('button');
-        pdfBtn.className = 'btn-modal primary';
-        pdfBtn.style.marginTop = '12px';
-        pdfBtn.style.width = '100%';
-        pdfBtn.style.display = 'flex';
-        pdfBtn.style.alignItems = 'center';
-        pdfBtn.style.justifyContent = 'center';
-        pdfBtn.style.gap = '8px';
-        pdfBtn.style.fontSize = '11px';
-        pdfBtn.style.padding = '8px 12px';
-        pdfBtn.innerHTML = `📥 Gerar Relatório em PDF`;
-        pdfBtn.onclick = function() {
-          showPDFOptions(fileData.type, fileData.date, fileData.title, cleanReply, 'custom');
-        };
-        typingEl.appendChild(pdfBtn);
-        
-        addAIMessage('assistant', cleanReply, false, true, fileData, true);
+        typingEl.remove();
+        addAIMessage('assistant', cleanReply, false, true, fileData, false);
       } catch (e) {
         console.error('Erro ao analisar JSON de geração de arquivo da IA:', e);
-        typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${reply.replace(/\n/g, '<br>')}`;
-        addAIMessage('assistant', reply, false, false, null, true);
+        typingEl.remove();
+        addAIMessage('assistant', reply, false, false, null, false);
       }
     } else {
+      typingEl.remove();
       const isReport = userMsg.toLowerCase().includes('relatorio') || userMsg.toLowerCase().includes('relatório');
-      if (isReport) {
-        // Add default PDF button
-        const pdfBtn = document.createElement('button');
-        pdfBtn.className = 'btn-modal primary';
-        pdfBtn.style.marginTop = '12px';
-        pdfBtn.style.width = '100%';
-        pdfBtn.style.display = 'flex';
-        pdfBtn.style.alignItems = 'center';
-        pdfBtn.style.justifyContent = 'center';
-        pdfBtn.style.gap = '8px';
-        pdfBtn.style.fontSize = '11px';
-        pdfBtn.style.padding = '8px 12px';
-        pdfBtn.innerHTML = `📥 Gerar Relatório em PDF`;
-        pdfBtn.dataset.rawText = reply;
-        pdfBtn.onclick = function() {
-          showPDFOptions(null, null, null, this.dataset.rawText, 'standard');
-        };
-        typingEl.appendChild(pdfBtn);
-      }
-      addAIMessage('assistant', reply, false, isReport, null, true);
+      addAIMessage('assistant', reply, false, isReport, null, false);
     }
   } catch (e) {
     typingEl.remove();
