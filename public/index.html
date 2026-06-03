@@ -2633,7 +2633,6 @@
       <div class="pulse"></div>
       <span id="statusText">IA conectada</span>
     </div>
-    <button class="btn-modal" style="font-size:10px;padding:5px 12px;margin-left:8px;border-color:rgba(255,135,135,0.3);color:var(--red);background:rgba(255,135,135,0.05)" onclick="showLogoutConfirmModal()" title="Sair da Conta">Sair</button>
   </header>
 
   <!-- SIDEBAR -->
@@ -3261,7 +3260,7 @@ const BASE_URL = isCapacitorApp
 const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
-async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
+async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey, onChunk) {
   const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
   const payload = {
     system_instruction: {
@@ -3287,8 +3286,8 @@ async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
     body:    JSON.stringify(payload),
   });
 
-  const data = await response.json();
   if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
     const apiMessage = data?.error?.message || data?.error?.code || 'Erro desconhecido na API do Gemini.';
     let userMessage = apiMessage;
 
@@ -3300,12 +3299,44 @@ async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
       userMessage = '💡 Erro no servidor do Gemini. Tente novamente mais tarde.';
     }
 
-    throw new Error(userMessage);
+    const err = new Error(userMessage);
+    err.status = response.status;
+    throw err;
   }
-  return { text: data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta.' };
+
+  return handleSSE(response, onChunk);
 }
 
-async function callGeminiProxy(body) {
+async function handleSSE(response, onChunk) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let done = false;
+  let fullText = "";
+
+  while (!done) {
+    const { value, done: readerDone } = await reader.read();
+    done = readerDone;
+    if (value) {
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6).trim();
+          if (dataStr === '[DONE]') continue;
+          try {
+            const dataObj = JSON.parse(dataStr);
+            const text = dataObj.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            fullText += text;
+            if (onChunk) onChunk(fullText);
+          } catch(e) {}
+        }
+      }
+    }
+  }
+  return { text: fullText };
+}
+
+async function callGeminiProxy(body, onChunk) {
   const sessionRes = await _supabase.auth.getSession();
   const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
   const res = await fetch(API_ENDPOINT, {
@@ -3318,8 +3349,8 @@ async function callGeminiProxy(body) {
     body: JSON.stringify(body),
   });
 
-  const data = await res.json();
   if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
     const errMsg = data?.error || data?.detail || 'Erro desconhecido da API.';
     const error = new Error(errMsg);
     error.status = res.status;
@@ -3327,21 +3358,21 @@ async function callGeminiProxy(body) {
     throw error;
   }
 
-  return data;
+  return handleSSE(res, onChunk);
 }
 
-async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, localKey, useContents = false) {
+async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, localKey, useContents = false, onChunk) {
   const body = {
     systemPrompt,
     ...(useContents ? { contents: messageOrContents } : { userMessage: messageOrContents }),
   };
 
   try {
-    return await callGeminiProxy(body);
+    return await callGeminiProxy(body, onChunk);
   } catch (proxyError) {
     if (!localKey) throw proxyError;
     console.warn('Proxy Gemini falhou, tentando chave local:', proxyError.message);
-    return await callGeminiDirect(systemPrompt, messageOrContents, localKey);
+    return await callGeminiDirect(systemPrompt, messageOrContents, localKey, onChunk);
   }
 }
 
@@ -7001,7 +7032,22 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
 
     let data;
     try {
-      data = await callGeminiWithProxyFallback(systemPrompt, contents, localKey, true);
+      typingEl.id = '';
+      typingEl.className = 'ai-msg assistant';
+
+      data = await callGeminiWithProxyFallback(systemPrompt, contents, localKey, true, (text) => {
+        let uiText = text;
+        uiText = uiText.replace(/\[(?:TASK_CREATE|FILE_GENERATE):\s*({.*?})\s*\]/g, '').trim();
+        const openBracketMatch = uiText.match(/\[.*?\]?\s*$/);
+        if (openBracketMatch) {
+            uiText = uiText.substring(0, openBracketMatch.index).trim();
+        }
+        if (uiText) {
+          typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${uiText.replace(/\n/g, '<br>')}`;
+          const msgs = document.getElementById('aiMessages');
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+      });
     } catch (proxyError) {
       const errMsg = proxyError?.message || 'Erro desconhecido da API.';
       typingEl.remove();
@@ -7020,7 +7066,6 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
     }
 
     const reply = data.text || 'Não consegui processar a resposta.';
-    typingEl.remove();
     
     // Processamento da tag de criação de tarefa ou geração de arquivo por IA
     const taskMatch = reply.match(/\[TASK_CREATE:\s*({.*?})\s*\]/);
@@ -7030,24 +7075,65 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
       try {
         const taskData = JSON.parse(taskMatch[1]);
         const cleanReply = reply.replace(/\[TASK_CREATE:\s*({.*?})\s*\]/, '').trim();
-        addAIMessage('assistant', cleanReply, false, false);
+        typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${cleanReply.replace(/\n/g, '<br>')}`;
+        addAIMessage('assistant', cleanReply, false, false, null, true); // save to history silently
         await executeAITaskCreate(taskData);
       } catch (e) {
         console.error('Erro ao analisar JSON da tarefa da IA:', e);
-        addAIMessage('assistant', reply, false, false);
+        typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${reply.replace(/\n/g, '<br>')}`;
+        addAIMessage('assistant', reply, false, false, null, true);
       }
     } else if (fileMatch) {
       try {
         const fileData = JSON.parse(fileMatch[1]);
         const cleanReply = reply.replace(/\[FILE_GENERATE:\s*({.*?})\s*\]/, '').trim();
-        addAIMessage('assistant', cleanReply, false, false, fileData);
+        typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${cleanReply.replace(/\n/g, '<br>')}`;
+        
+        // Add PDF button to the existing streaming element
+        const pdfBtn = document.createElement('button');
+        pdfBtn.className = 'btn-modal primary';
+        pdfBtn.style.marginTop = '12px';
+        pdfBtn.style.width = '100%';
+        pdfBtn.style.display = 'flex';
+        pdfBtn.style.alignItems = 'center';
+        pdfBtn.style.justifyContent = 'center';
+        pdfBtn.style.gap = '8px';
+        pdfBtn.style.fontSize = '11px';
+        pdfBtn.style.padding = '8px 12px';
+        pdfBtn.innerHTML = `📥 Gerar Relatório em PDF`;
+        pdfBtn.onclick = function() {
+          showPDFOptions(fileData.type, fileData.date, fileData.title, cleanReply, 'custom');
+        };
+        typingEl.appendChild(pdfBtn);
+        
+        addAIMessage('assistant', cleanReply, false, true, fileData, true);
       } catch (e) {
         console.error('Erro ao analisar JSON de geração de arquivo da IA:', e);
-        addAIMessage('assistant', reply, false, false);
+        typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${reply.replace(/\n/g, '<br>')}`;
+        addAIMessage('assistant', reply, false, false, null, true);
       }
     } else {
       const isReport = userMsg.toLowerCase().includes('relatorio') || userMsg.toLowerCase().includes('relatório');
-      addAIMessage('assistant', reply, false, isReport);
+      if (isReport) {
+        // Add default PDF button
+        const pdfBtn = document.createElement('button');
+        pdfBtn.className = 'btn-modal primary';
+        pdfBtn.style.marginTop = '12px';
+        pdfBtn.style.width = '100%';
+        pdfBtn.style.display = 'flex';
+        pdfBtn.style.alignItems = 'center';
+        pdfBtn.style.justifyContent = 'center';
+        pdfBtn.style.gap = '8px';
+        pdfBtn.style.fontSize = '11px';
+        pdfBtn.style.padding = '8px 12px';
+        pdfBtn.innerHTML = `📥 Gerar Relatório em PDF`;
+        pdfBtn.dataset.rawText = reply;
+        pdfBtn.onclick = function() {
+          showPDFOptions(null, null, null, this.dataset.rawText, 'standard');
+        };
+        typingEl.appendChild(pdfBtn);
+      }
+      addAIMessage('assistant', reply, false, isReport, null, true);
     }
   } catch (e) {
     typingEl.remove();

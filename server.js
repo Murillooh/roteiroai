@@ -94,7 +94,7 @@ app.post('/api/chat', async (req, res) => {
 
   const { systemPrompt, userMessage, contents } = req.body;
 
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:streamGenerateContent?alt=sse&key=${apiKey}`;
 
   const normalizedContents = Array.isArray(contents) ? contents.map(message => ({
     ...message,
@@ -121,9 +121,8 @@ app.post('/api/chat', async (req, res) => {
       body:    JSON.stringify(payload),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
       const errMsg = data?.error?.message || 'Erro desconhecido.';
       console.error('❌ Gemini retornou erro:', {
         status: response.status,
@@ -149,9 +148,11 @@ app.post('/api/chat', async (req, res) => {
       });
     }
 
-    // Extrai o texto da resposta do Gemini
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta.';
-    res.json({ text });
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    response.body.pipe(res);
 
   } catch (err) {
     console.error('❌ Erro ao chamar Gemini:', err.message);
