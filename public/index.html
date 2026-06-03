@@ -3100,7 +3100,7 @@
         🆕 Nova conversa
       </button>
       <div id="aiHistoryCount" style="font-size:11px; color:var(--sub); opacity:0.8; white-space:nowrap; flex-shrink:0;">0 / 20 mensagens</div>
-      <div class="ai-model-badge" style="margin-left: auto;">gemini-3.1-flash-lite</div>
+      <div class="ai-model-badge" style="margin-left: auto;">gemini-2.5-flash</div>
     </div>
 
     <div class="ai-messages" id="aiMessages"></div>
@@ -3254,7 +3254,7 @@ const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
 async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey, onChunk) {
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`;
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   const payload = {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
@@ -6992,7 +6992,7 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
 
       data = await callGeminiWithProxyFallback(systemPrompt, contents, localKey, true, (text) => {
         let uiText = text;
-        uiText = uiText.replace(/\[(?:TASK_CREATE|FILE_GENERATE):\s*({.*?})\s*\]/g, '').trim();
+        uiText = uiText.replace(/\[(?:TASK_CREATE|FILE_GENERATE):\s*({[\s\S]*?})\s*\]/g, '').trim();
         const openBracketMatch = uiText.match(/\[.*?\]?\s*$/);
         if (openBracketMatch) {
             uiText = uiText.substring(0, openBracketMatch.index).trim();
@@ -7023,13 +7023,13 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
     const reply = data.text || 'Não consegui processar a resposta.';
     
     // Processamento da tag de criação de tarefa ou geração de arquivo por IA
-    const taskMatch = reply.match(/\[TASK_CREATE:\s*({.*?})\s*\]/);
-    const fileMatch = reply.match(/\[FILE_GENERATE:\s*({.*?})\s*\]/);
+    const taskMatch = reply.match(/\[TASK_CREATE:\s*({[\s\S]*?})\s*\]/);
+    const fileMatch = reply.match(/\[FILE_GENERATE:\s*({[\s\S]*?})\s*\]/);
     
     if (taskMatch) {
       try {
         const taskData = JSON.parse(taskMatch[1]);
-        const cleanReply = reply.replace(/\[TASK_CREATE:\s*({.*?})\s*\]/, '').trim();
+        const cleanReply = reply.replace(/\[TASK_CREATE:\s*({[\s\S]*?})\s*\]/, '').trim();
         typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${cleanReply.replace(/\n/g, '<br>')}`;
         addAIMessage('assistant', cleanReply, false, false, null, true); // save to history silently
         await executeAITaskCreate(taskData);
@@ -7041,7 +7041,7 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
     } else if (fileMatch) {
       try {
         const fileData = JSON.parse(fileMatch[1]);
-        const cleanReply = reply.replace(/\[FILE_GENERATE:\s*({.*?})\s*\]/, '').trim();
+        const cleanReply = reply.replace(/\[FILE_GENERATE:\s*({[\s\S]*?})\s*\]/, '').trim();
         typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${cleanReply.replace(/\n/g, '<br>')}`;
         
         // Add PDF button to the existing streaming element
