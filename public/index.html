@@ -5561,7 +5561,7 @@ function createStandardPDFElement(aiText) {
   const headerHTML = `
     <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
       <div>
-        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">Tarefas <span style="color:#a9e34b">IA</span></h1>
         <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Relatório de Desempenho Executivo</p>
       </div>
       <div style="text-align: right;">
@@ -5604,7 +5604,7 @@ function createCustomPDFElement(type, date, title, aiText) {
   const headerHTML = `
     <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
       <div>
-        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">Tarefas <span style="color:#a9e34b">IA</span></h1>
         <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${title || 'Relatório de Atividades'}</p>
       </div>
       <div style="text-align: right;">
@@ -5648,7 +5648,7 @@ async function downloadReportPDF(aiText) {
   const headerHTML = `
     <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
       <div>
-        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">Tarefas <span style="color:#a9e34b">IA</span></h1>
         <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Relatório de Desempenho Executivo</p>
       </div>
       <div style="text-align: right;">
@@ -5996,7 +5996,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
   const headerHTML = `
     <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
       <div>
-        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">Tarefas <span style="color:#a9e34b">IA</span></h1>
         <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${title || 'Relatório de Atividades'}</p>
       </div>
       <div style="text-align: right;">
@@ -6505,6 +6505,314 @@ Responda em português brasileiro de forma profissional e direta.`;
   } finally {
     loadingModal.style.display = 'none';
   }
+}
+
+async function generateMonthlyPDF(userId, month, year) {
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const monthName = monthNames[month - 1] || 'Mês';
+  const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
+  const endDate = new Date(year, month, 1, 0, 0, 0, 0);
+  const fileName = `relatorio_mensal_${monthName.toLowerCase()}_${year}.pdf`;
+
+  const userName = await resolveMonthlyReportUserName(userId);
+
+  const { data, error } = await _supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('created_at', startDate.toISOString())
+    .lt('created_at', endDate.toISOString())
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao buscar tarefas mensais:', error);
+    alert('Não foi possível carregar as tarefas do mês. Verifique sua conexão e tente novamente.');
+    return;
+  }
+
+  const taskGroups = groupMonthlyTasks(data, month, year);
+  const summary = buildMonthlyMetrics(taskGroups);
+  const aiSummary = await buildMonthlyAISummary(monthName, year, summary, taskGroups);
+
+  const element = document.createElement('div');
+  element.style.width = '210mm';
+  element.style.backgroundColor = '#0a0a0a';
+  element.style.color = '#e8e8e8';
+  element.style.fontFamily = "'Inter', sans-serif";
+  element.style.padding = '0';
+  element.innerHTML = createMonthlyPDFTemplate(userName, monthName, year, taskGroups, summary, aiSummary);
+  document.body.appendChild(element);
+
+  const opt = {
+    margin: 10,
+    filename: fileName,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#0a0a0a' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  await exportPDFElement(element, opt);
+}
+
+async function resolveMonthlyReportUserName(userId) {
+  if (currentUser && currentUser.id === userId) {
+    return (currentUser.user_metadata || {}).full_name || currentUser.email || 'Usuário Tarefas IA';
+  }
+
+  try {
+    const { data, error } = await _supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', userId)
+      .single();
+
+    if (!error && data) {
+      return data.full_name || data.email || 'Usuário Tarefas IA';
+    }
+  } catch (e) {
+    console.warn('Erro ao buscar nome do usuário para relatório mensal:', e);
+  }
+
+  return 'Usuário Tarefas IA';
+}
+
+function groupMonthlyTasks(tasks, month, year) {
+  const grouped = {};
+
+  tasks.forEach(task => {
+    const taskDate = parseTaskDate(task);
+    if (taskDate.getMonth() !== month - 1 || taskDate.getFullYear() !== year) return;
+
+    const weekStart = getMonday(taskDate);
+    const weekKey = formatDateISO(weekStart);
+    const rangeStart = new Date(weekStart);
+    const rangeEnd = new Date(weekStart);
+    rangeEnd.setDate(rangeEnd.getDate() + 6);
+
+    if (!grouped[weekKey]) {
+      grouped[weekKey] = {
+        weekKey,
+        weekStart: new Date(weekStart),
+        weekEnd: new Date(rangeEnd),
+        tasks: [],
+        total: 0,
+        done: 0
+      };
+    }
+
+    grouped[weekKey].tasks.push(task);
+    grouped[weekKey].total += 1;
+    grouped[weekKey].done += task.done ? 1 : 0;
+  });
+
+  const sorted = Object.values(grouped).sort((a, b) => a.weekStart - b.weekStart);
+  return sorted.map((group, index) => {
+    const startLabel = formatDateBR(group.weekStart);
+    const endLabel = formatDateBR(group.weekEnd);
+    return {
+      ...group,
+      label: `Semana ${index + 1}`,
+      rangeLabel: `${startLabel} – ${endLabel}`,
+      completion: group.total ? Math.round((group.done / group.total) * 100) : 0,
+      tasks: group.tasks.sort((a, b) => parseTaskDate(a) - parseTaskDate(b))
+    };
+  });
+}
+
+function parseTaskDate(task) {
+  if (task.created_at) {
+    return new Date(task.created_at);
+  }
+  if (task.day_id) {
+    return new Date(`${task.day_id}T00:00:00`);
+  }
+  return new Date();
+}
+
+function buildMonthlyMetrics(weekGroups) {
+  const totalTasks = weekGroups.reduce((sum, group) => sum + group.total, 0);
+  const totalDone = weekGroups.reduce((sum, group) => sum + group.done, 0);
+  const completion = totalTasks ? Math.round((totalDone / totalTasks) * 100) : 0;
+
+  return {
+    totalTasks,
+    totalDone,
+    totalPending: totalTasks - totalDone,
+    completion,
+    weeks: weekGroups.length
+  };
+}
+
+async function buildMonthlyAISummary(monthName, year, metrics, weekGroups) {
+  const localKey = localStorage.getItem('google_api_key');
+  let serverHasKey = false;
+  try {
+    if (!localKey) {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    }
+  } catch (e) {
+    console.warn('Erro ao checar status do servidor para IA mensal:', e);
+  }
+
+  const fallback = `O mês de ${monthName} apresentou ${metrics.totalTasks} tarefas, com ${metrics.totalDone} concluídas e ${metrics.totalPending} pendentes, resultando em uma taxa de conclusão de ${metrics.completion}%. O fluxo de trabalho foi agrupado em ${metrics.weeks} semanas e as principais entregas foram priorizadas para manter consistência nas rotas e atendimento operacional.`;
+
+  if (!serverHasKey && !localKey) return fallback;
+
+  const systemPrompt = `Você é um analista executivo de operações de campo que escreve relatórios mensais de produtividade.`;
+  const prompt = `Baseado nos dados abaixo, gere um resumo executivo de performance e recomendações operacionais para o mês de ${monthName} de ${year}. Use português brasileiro e mantenha o texto em 2 parágrafos profissionais.
+
+- Tarefas totais: ${metrics.totalTasks}
+- Concluídas: ${metrics.totalDone}
+- Pendentes: ${metrics.totalPending}
+- Taxa de conclusão: ${metrics.completion}%
+- Semanas avaliadas: ${metrics.weeks}
+
+Inclua um comentário sobre a produtividade semanal e um ponto de atenção para o próximo mês.`;
+
+  try {
+    const data = await callGeminiWithProxyFallback(systemPrompt, prompt, localKey, false);
+    return data.text || fallback;
+  } catch (e) {
+    console.warn('IA mensal falhou, usando resumo fallback:', e);
+    return fallback;
+  }
+}
+
+function createMonthlyPDFTemplate(userName, monthName, year, weekGroups, metrics, aiSummary) {
+  const barSvg = generateMonthlyBarChartSVG(weekGroups);
+  const weekRows = weekGroups.map((group, idx) => {
+    const rows = group.tasks.map(task => {
+      const date = parseTaskDate(task);
+      const formattedDate = formatDateBR(date);
+      const status = task.done ? 'Concluída' : 'Pendente';
+      return `
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #121212; color: #d4d4d4; font-size: 10px;">${formattedDate}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #121212; color: #ffffff; font-size: 10px;">${task.text}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #121212; color: #00ff88; font-size: 10px;">${task.time || '—'}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #121212; color: ${task.done ? '#00ff88' : '#ff5f7a'}; font-size: 10px; font-weight: 700;">${status}</td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-bottom: 18px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:12px;color:#00ff88;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;">${group.label}</div>
+          <div style="font-size:10px;color:#8f8f8f;">${group.rangeLabel} • ${group.completion}%</div>
+        </div>
+        <div style="border:1px solid #121212;border-radius:12px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:10px 8px;background:#070707;color:#8f8f8f;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;">Data</th>
+                <th style="text-align:left;padding:10px 8px;background:#070707;color:#8f8f8f;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;">Descrição</th>
+                <th style="text-align:left;padding:10px 8px;background:#070707;color:#8f8f8f;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;">Horário</th>
+                <th style="text-align:left;padding:10px 8px;background:#070707;color:#8f8f8f;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;">Status</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div style="width:210mm;min-height:297mm;background:#0a0a0a;color:#e8e8e8;padding:10mm 12mm;">
+      <div style="padding:20px;border:1px solid #111111;border-radius:22px;background:linear-gradient(180deg, rgba(10,10,10,0.96), rgba(12,12,12,0.98));box-shadow:0 30px 80px rgba(0,255,136,0.08);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,255,136,0.45));display:grid;place-items:center;box-shadow:0 0 20px rgba(0,255,136,0.16);">
+              <span style="font-family:'Goldman',sans-serif;font-size:28px;color:#ffffff;letter-spacing:-1px;">T</span>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#00ff88;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">Tarefas IA</div>
+              <div style="font-size:24px;color:#ffffff;font-weight:800;margin-top:4px;line-height:1.1;">Relatório Mensal</div>
+              <div style="font-size:11px;color:#8f8f8f;margin-top:4px;">${userName} • ${monthName} ${year}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px;color:#8f8f8f;text-transform:uppercase;letter-spacing:0.2em;margin-bottom:6px;">Gerado em</div>
+            <div style="font-size:14px;color:#ffffff;font-weight:700;">${formatDateBR(new Date())}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;">
+          ${createMetricCard('Tarefas Totais', metrics.totalTasks, '#00ff88')}
+          ${createMetricCard('Concluídas', metrics.totalDone, '#00ff88')}
+          ${createMetricCard('Pendentes', metrics.totalPending, '#ff5f7a')}
+          ${createMetricCard('Produtividade', `${metrics.completion}%`, '#00ff88')}
+        </div>
+
+        <div style="margin-bottom:22px;padding:18px;border-radius:18px;background:#080808;border:1px solid #111111;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="font-size:11px;color:#8f8f8f;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;">Produtividade Semanal</div>
+            <div style="font-size:10px;color:#6dffb9;">${weekGroups.length} semanas avaliadas</div>
+          </div>
+          ${barSvg}
+        </div>
+
+        <div style="padding:18px;background:#080808;border:1px solid #111111;border-radius:18px;margin-bottom:24px;">
+          <div style="font-size:11px;color:#8f8f8f;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:10px;">Análise da IA</div>
+          <div style="font-size:11px;line-height:1.7;color:#d4d4d4;">${aiSummary.replace(/\n/g, '<br>')}</div>
+        </div>
+
+        <div style="margin-bottom:18px;">
+          <div style="font-size:11px;color:#00ff88;font-weight:700;text-transform:uppercase;letter-spacing:0.16em;margin-bottom:10px;">Tabela mensal agrupada por semana</div>
+          ${weekRows}
+        </div>
+      </div>
+      <div style="margin-top:18px;font-size:9px;color:#6d6d6d;text-align:center;">Relatório gerado automaticamente pelo Tarefas IA • Design premium em dark mode para leitura noturna.</div>
+    </div>
+  `;
+}
+
+function createMetricCard(label, value, color) {
+  return `
+    <div style="padding:16px;border-radius:18px;background:linear-gradient(180deg, rgba(0,255,136,0.08), rgba(0,255,136,0));border:1px solid rgba(0,255,136,0.18);">
+      <div style="font-size:9px;color:#8f8f8f;text-transform:uppercase;letter-spacing:0.14em;font-weight:700;margin-bottom:8px;">${label}</div>
+      <div style="font-size:22px;color:${color};font-weight:800;">${value}</div>
+    </div>
+  `;
+}
+
+function generateMonthlyBarChartSVG(weekGroups) {
+  const height = 120;
+  const width = Math.max(520, weekGroups.length * 90);
+  const barWidth = 28;
+  const spacing = weekGroups.length > 1 ? (width - 80) / weekGroups.length : 0;
+
+  const columns = weekGroups.map((group, idx) => {
+    const barHeight = 20 + Math.round((group.completion / 100) * 70);
+    const x = 30 + idx * spacing;
+    return `
+      <g>
+        <rect x="${x}" y="${height - barHeight - 20}" width="${barWidth}" height="${barHeight}" rx="10" ry="10" fill="url(#greenGradient)" />
+        <text x="${x + barWidth / 2}" y="${height - 4}" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#8f8f8f">${group.label}</text>
+        <text x="${x + barWidth / 2}" y="${height - barHeight - 28}" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#00ff88">${group.completion}%</text>
+      </g>
+    `;
+  }).join('');
+
+  return `
+    <svg width="100%" height="120" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="display:block;margin:auto;">
+      <defs>
+        <linearGradient id="greenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#7effc3" />
+          <stop offset="100%" stop-color="#00b971" />
+        </linearGradient>
+        <pattern id="gridPattern" width="26" height="26" patternUnits="userSpaceOnUse">
+          <path d="M26 0 L0 0 0 26" fill="none" stroke="#111111" stroke-width="1" />
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="${width}" height="${height}" rx="20" ry="20" fill="#050505" />
+      <rect x="0" y="0" width="${width}" height="${height}" fill="url(#gridPattern)" opacity="0.18" />
+      ${columns}
+    </svg>
+  `;
 }
 
 async function callAI(userMsg) {
