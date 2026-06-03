@@ -3064,16 +3064,18 @@
 
   <!-- AI PANEL -->
   <aside class="ai-panel">
-    <div class="ai-header">
-      <div class="ai-icon">✦</div>
-      <div>
+    <div class="ai-header" style="justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 10px; min-width: max-content;">
+        <div class="ai-icon">✦</div>
         <div class="ai-title">Assistente <span>IA</span></div>
       </div>
-      <button onclick="clearChatHistory()" style="background:none; border:none; color:var(--sub); cursor:pointer; font-size:11px; margin-left:auto; margin-right:8px; display:flex; align-items:center; gap:4px; opacity:0.6; transition:opacity 0.2s; white-space:nowrap; flex-shrink:0;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Nova conversa">
-        🆕 Nova conversa
-      </button>
-      <div id="aiHistoryCount" style="font-size:11px; color:var(--sub); margin-right:8px; align-self:center; opacity:0.8; white-space:nowrap;">0 / 20 mensagens</div>
-      <div class="ai-model-badge">gemini-3.1-flash-lite</div>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end;">
+        <button onclick="clearChatHistory()" style="background:none; border:none; color:var(--sub); cursor:pointer; font-size:11px; display:flex; align-items:center; gap:4px; opacity:0.6; transition:opacity 0.2s; white-space:nowrap; flex-shrink:0;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6" title="Nova conversa">
+          🆕 Nova conversa
+        </button>
+        <div id="aiHistoryCount" style="font-size:11px; color:var(--sub); opacity:0.8; white-space:nowrap; flex-shrink:0;">0 / 20 mensagens</div>
+        <div class="ai-model-badge" style="margin-left: 0;">gemini-3.1-flash-lite</div>
+      </div>
     </div>
 
     <div class="ai-messages" id="aiMessages"></div>
