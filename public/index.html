@@ -1770,12 +1770,27 @@
 
   .color-picker-btn {
     box-sizing: border-box;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #ffffff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
   }
   .color-picker-btn:hover {
-    transform: scale(1.15) !important;
+    transform: scale(1.1) translateY(-2px) !important;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.25);
   }
   .color-picker-btn.active {
-    box-shadow: 0 0 0 2px var(--text) !important;
+    box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--text) !important;
     transform: scale(1.15) !important;
   }
 
@@ -2841,19 +2856,19 @@
       <!-- Theme Color Picker -->
       <div class="db-box" style="padding: 20px; border-radius: 16px;">
         <div style="font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 14px; text-align: left;">Cor de destaque</div>
-        <div class="theme-color-grid" style="display: flex; flex-wrap: wrap; gap: 10px;">
-          <button class="color-picker-btn active" data-color="#a9e34b" style="background: #a9e34b; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#a9e34b', this)">✓</button>
-          <button class="color-picker-btn" data-color="#74c0fc" style="background: #74c0fc; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#74c0fc', this)"></button>
-          <button class="color-picker-btn" data-color="#ff85a2" style="background: #ff85a2; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#ff85a2', this)"></button>
-          <button class="color-picker-btn" data-color="#ffa94d" style="background: #ffa94d; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#ffa94d', this)"></button>
-          <button class="color-picker-btn" data-color="#b197fc" style="background: #b197fc; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#b197fc', this)"></button>
-          <button class="color-picker-btn" data-color="#69db7c" style="background: #69db7c; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#69db7c', this)"></button>
-          <button class="color-picker-btn" data-color="#ff8787" style="background: #ff8787; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#ff8787', this)"></button>
-          <button class="color-picker-btn" data-color="#9e9e9e" style="background: #9e9e9e; width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" onclick="changeAppThemeColor('#9e9e9e', this)"></button>
-          <label class="color-picker-btn custom-color" style="position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red); width: 44px; height: 44px; border-radius: 14px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: #080808; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);" title="Cor personalizada">
+        <div class="theme-color-grid" style="display: flex; flex-wrap: wrap; gap: 14px;">
+          <button class="color-picker-btn active" data-color="#a9e34b" style="background: #a9e34b;" onclick="changeAppThemeColor('#a9e34b', this)">✓</button>
+          <button class="color-picker-btn" data-color="#74c0fc" style="background: #74c0fc;" onclick="changeAppThemeColor('#74c0fc', this)"></button>
+          <button class="color-picker-btn" data-color="#ff85a2" style="background: #ff85a2;" onclick="changeAppThemeColor('#ff85a2', this)"></button>
+          <button class="color-picker-btn" data-color="#ffa94d" style="background: #ffa94d;" onclick="changeAppThemeColor('#ffa94d', this)"></button>
+          <button class="color-picker-btn" data-color="#b197fc" style="background: #b197fc;" onclick="changeAppThemeColor('#b197fc', this)"></button>
+          <button class="color-picker-btn" data-color="#69db7c" style="background: #69db7c;" onclick="changeAppThemeColor('#69db7c', this)"></button>
+          <button class="color-picker-btn" data-color="#ff8787" style="background: #ff8787;" onclick="changeAppThemeColor('#ff8787', this)"></button>
+          <button class="color-picker-btn" data-color="#9e9e9e" style="background: #9e9e9e;" onclick="changeAppThemeColor('#9e9e9e', this)"></button>
+          <label class="color-picker-btn custom-color" style="position: relative; overflow: hidden; background: conic-gradient(from 90deg, #ff595e, #ffca3a, #8ac926, #1982c4, #6a4c93, #ff595e);" title="Cor personalizada">
             <input type="color" value="#ffffff" style="position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer;" oninput="changeAppThemeColor(this.value, this.parentElement)" onchange="changeAppThemeColor(this.value, this.parentElement)">
-            <svg class="custom-color-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; mix-blend-mode: difference;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            <div class="custom-color-check" style="display: none; pointer-events: none; font-size: 16px; font-weight: bold; color: #fff; mix-blend-mode: difference;">✓</div>
+            <svg class="custom-color-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <div class="custom-color-check" style="display: none; pointer-events: none; font-size: 18px; font-weight: bold; color: #fff;">✓</div>
           </label>
         </div>
       </div>
@@ -4266,7 +4281,7 @@ function renderConfigScreen() {
         foundPredefined = true;
       }
     } else {
-      btn.style.background = 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)';
+      btn.style.background = 'conic-gradient(from 90deg, #ff595e, #ffca3a, #8ac926, #1982c4, #6a4c93, #ff595e)';
       btn.querySelector('.custom-color-icon').style.display = 'block';
       btn.querySelector('.custom-color-check').style.display = 'none';
     }
@@ -4334,7 +4349,7 @@ function changeAppThemeColor(color, element) {
     if (!btn.classList.contains('custom-color')) {
       btn.textContent = '';
     } else {
-      btn.style.background = 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)';
+      btn.style.background = 'conic-gradient(from 90deg, #ff595e, #ffca3a, #8ac926, #1982c4, #6a4c93, #ff595e)';
       btn.querySelector('.custom-color-icon').style.display = 'block';
       btn.querySelector('.custom-color-check').style.display = 'none';
     }
