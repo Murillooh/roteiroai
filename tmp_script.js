@@ -152,12 +152,19 @@ async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, loca
     ...(useContents ? { contents: messageOrContents } : { userMessage: messageOrContents }),
   };
 
-  try {
-    return await callGeminiProxy(body);
-  } catch (proxyError) {
-    if (!localKey) throw proxyError;
-    console.warn('Proxy Gemini falhou, tentando chave local:', proxyError.message);
-    return await callGeminiDirect(systemPrompt, messageOrContents, localKey);
+  if (localKey) {
+    try {
+      return await callGeminiDirect(systemPrompt, messageOrContents, localKey);
+    } catch (directError) {
+      console.warn('Chamada direta do Gemini falhou, tentando proxy:', directError.message);
+      return await callGeminiProxy(body);
+    }
+  } else {
+    try {
+      return await callGeminiProxy(body);
+    } catch (proxyError) {
+      throw proxyError;
+    }
   }
 }
 
