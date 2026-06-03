@@ -2618,7 +2618,6 @@
       <div class="pulse"></div>
       <span id="statusText">IA conectada</span>
     </div>
-    <button class="btn-modal" style="font-size:10px;padding:5px 12px;margin-left:8px" onclick="showModal()" id="configBtn" title="Configurar API Key">⚙ API</button>
     <button class="btn-modal" style="font-size:10px;padding:5px 12px;margin-left:8px;border-color:rgba(255,135,135,0.3);color:var(--red);background:rgba(255,135,135,0.05)" onclick="showLogoutConfirmModal()" title="Sair da Conta">Sair</button>
   </header>
 
@@ -2900,6 +2899,25 @@
           <div style="flex: 1; text-align: left;">
             <div style="font-size: 14px; font-weight: 600; color: var(--text);">Acessibilidade</div>
             <div id="accessibilitySubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Contraste e animações</div>
+          </div>
+          <div style="color: var(--sub); font-size: 16px; display: flex; align-items: center; margin-left: 8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI Panel -->
+      <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--sub); text-transform: uppercase; margin-top: 5px; margin-bottom: 5px; text-align: left;">Inteligência Artificial</div>
+      
+      <div class="db-box" style="padding: 0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+        <!-- Item: Chave da API -->
+        <div style="display: flex; align-items: center; padding: 14px 16px; cursor: pointer;" onclick="showModal()">
+          <div style="width: 36px; height: 36px; border-radius: 10px; background: rgba(169, 227, 75, 0.08); color: var(--ai); display: flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+          </div>
+          <div style="flex: 1; text-align: left;">
+            <div style="font-size: 14px; font-weight: 600; color: var(--text);">Configurar API Gemini</div>
+            <div id="aiConfigSubtitle" style="font-size: 11px; color: var(--sub); margin-top: 2px;">Chave de acesso da IA</div>
           </div>
           <div style="color: var(--sub); font-size: 16px; display: flex; align-items: center; margin-left: 8px;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"></polyline></svg>
