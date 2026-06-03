@@ -655,7 +655,7 @@ _supabase.auth.onAuthStateChange(async (event, session) => {
 // ── Modal (API Key) ───────────────────────────────────────────────────────────
 function showModal() {
   document.getElementById('apiModal').style.display = 'flex';
-  const existing = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6I-TLNYXopWLfa6ach9n41G21DA3Hyd5rD3mVL5YiLcew') || '';
+  const existing = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw') || '';
   document.getElementById('apiKeyInput').value = existing ? '•'.repeat(20) : '';
   document.getElementById('apiKeyInput').placeholder = existing ? 'Chave salva (clique para alterar)' : 'AIzaSy...';
   document.getElementById('modalSkipBtn').style.display = existing ? 'block' : 'none';
@@ -711,7 +711,7 @@ async function init() {
     console.warn('Não foi possível verificar status do servidor:', e.message);
   }
 
-  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6I-TLNYXopWLfa6ach9n41G21DA3Hyd5rD3mVL5YiLcew');
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
   const isReady  = serverHasKey || !!localKey;
   setStatus(isReady);
 
@@ -729,7 +729,7 @@ async function init() {
 }
 
 function showWelcomeMessage() {
-  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6I-TLNYXopWLfa6ach9n41G21DA3Hyd5rD3mVL5YiLcew');
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
   const isReady = isAIReady || !!localKey;
   
   if (!isReady) {
@@ -1889,7 +1889,7 @@ async function generateTaskDetailsWithIA() {
 
   if (!targetTask) return;
 
-  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6I-TLNYXopWLfa6ach9n41G21DA3Hyd5rD3mVL5YiLcew');
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
   let serverHasKey = false;
   
   if (!localKey) {
@@ -2910,7 +2910,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
 
 // ── Exportação Rápida com IA via Dashboard ──────────────────────────────────────
 async function exportDashboardPDF() {
-  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6I-TLNYXopWLfa6ach9n41G21DA3Hyd5rD3mVL5YiLcew');
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
   let serverHasKey = false;
   
   if (!localKey) {
@@ -2959,7 +2959,7 @@ Responda em português brasileiro de forma profissional e direta.`;
 }
 
 async function callAI(userMsg) {
-  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6I-TLNYXopWLfa6ach9n41G21DA3Hyd5rD3mVL5YiLcew');
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
   let serverHasKey = false;
   
   if (!localKey) {
@@ -3368,7 +3368,7 @@ document.getElementById('taskInput').addEventListener('keydown', e => {
 });
 
 document.getElementById('apiModal').addEventListener('click', function(e) {
-  if (e.target === this && (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6I-TLNYXopWLfa6ach9n41G21DA3Hyd5rD3mVL5YiLcew')) closeModal();
+  if (e.target === this && (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw')) closeModal();
 });
 
 document.getElementById('logoutConfirmModal').addEventListener('click', function(e) {
