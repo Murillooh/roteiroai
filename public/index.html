@@ -6939,7 +6939,7 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
       }
       
       contents.push({
-        role: m.role === 'model' ? 'assistant' : m.role,
+        role: m.role === 'assistant' ? 'model' : m.role,
         parts: [{ text: messageText }]
       });
     });
