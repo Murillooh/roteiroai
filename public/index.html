@@ -5318,18 +5318,35 @@ function addAIMessage(role, text, isTyping = false, isReport = false, fileConfig
       btn.style.fontSize = '11px';
       btn.style.padding = '8px 12px';
       
-      if (fileConfig) {
-        btn.innerHTML = `📥 Gerar Relatório em PDF`;
-        btn.onclick = function() {
-          showPDFOptions(fileConfig.type, fileConfig.date, fileConfig.title, text, 'custom');
-        };
-      } else {
-        btn.innerHTML = '📥 Gerar Relatório em PDF';
-        btn.dataset.rawText = text;
-        btn.onclick = function() {
-          showPDFOptions(null, null, null, this.dataset.rawText, 'standard');
-        };
-      }
+      btn.innerHTML = '📥 Gerar Relatório em PDF';
+      
+      const isCustom = !!fileConfig;
+      const pType = fileConfig ? fileConfig.type : null;
+      const pDate = fileConfig ? fileConfig.date : null;
+      const pTitle = fileConfig ? fileConfig.title : null;
+      const pText = text;
+
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        try {
+          if (typeof showPDFOptions === 'function') {
+            if (isCustom) {
+              showPDFOptions(pType, pDate, pTitle, pText, 'custom');
+            } else {
+              showPDFOptions(null, null, null, pText, 'standard');
+            }
+          } else {
+            throw new Error('showPDFOptions undefined');
+          }
+        } catch (err) {
+          console.error('Erro ao exibir modal de PDF, caindo para fallback', err);
+          if (isCustom) {
+            downloadCustomPeriodPDF(pType, pDate, pTitle, pText);
+          } else {
+            downloadReportPDF(pText);
+          }
+        }
+      });
       div.appendChild(btn);
     }
   }
