@@ -5975,27 +5975,29 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
     }
   };
 
-  try {
-    console.log('🔵 Tentando html2pdf().save()...');
-    await html2pdf().set(opt).from(element).save();
-    console.log('✅ PDF salvo com sucesso via html2pdf.save()');
-    cleanup();
-    return;
-  } catch (err) {
-    console.warn('⚠️ html2pdf.save() falhou:', err);
+  const isNative = window.Capacitor && window.Capacitor.isNative;
+
+  if (!isNative) {
+    try {
+      console.log('🔵 Tentando html2pdf().save()...');
+      await html2pdf().set(opt).from(element).save();
+      console.log('✅ PDF salvo com sucesso via html2pdf.save()');
+      cleanup();
+      return;
+    } catch (err) {
+      console.warn('⚠️ html2pdf.save() falhou:', err);
+    }
   }
 
   try {
     console.log('🔵 Tentando fallback: outputPdf(blob)...');
     const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
-    console.log('✅ Blob PDF gerado, tentando download via Capacitor...');
     
-    // Tenta usar Capacitor para download se disponível
-    if (window.Capacitor && window.Capacitor.isNative) {
+    if (isNative) {
+      console.log('✅ Blob PDF gerado, tentando download via Capacitor...');
       try {
         const { Filesystem, Directory } = window.Capacitor.Plugins;
         const base64 = await blobToBase64(pdfBlob);
-        const downloadDir = await Filesystem.getUri({ directory: Directory.Documents, path: '.' });
         const fileName = opt.filename || 'relatorio.pdf';
         
         await Filesystem.writeFile({
@@ -6011,10 +6013,11 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
         return;
       } catch (capacitorErr) {
         console.warn('⚠️ Download via Capacitor falhou:', capacitorErr);
+        throw capacitorErr; // força o catch geral para exibir o erro
       }
     }
 
-    // Fallback: criar URL do blob e abrir em nova aba
+    // Fallback para web
     console.log('🔵 Tentando fallback: abrir blob em nova aba...');
     const url = URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
