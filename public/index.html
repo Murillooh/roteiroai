@@ -5996,19 +5996,28 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
     if (isNative) {
       console.log('✅ Blob PDF gerado, tentando download via Capacitor...');
       try {
-        const { Filesystem, Directory } = window.Capacitor.Plugins;
+        const { Filesystem, Directory, Share } = window.Capacitor.Plugins;
         const base64 = await blobToBase64(pdfBlob);
         const fileName = opt.filename || 'relatorio.pdf';
         
-        await Filesystem.writeFile({
+        const writeResult = await Filesystem.writeFile({
           path: fileName,
           data: base64,
-          directory: Directory.Documents,
+          directory: Directory.Cache,
           recursive: true
         });
         
-        console.log('✅ PDF baixado para a pasta Documents via Capacitor:', fileName);
-        alert(`✅ Relatório salvo em: Documents/${fileName}`);
+        console.log('✅ PDF salvo em Cache via Capacitor:', writeResult.uri);
+        
+        if (Share) {
+          await Share.share({
+            title: opt.filename || 'Relatório PDF',
+            url: writeResult.uri,
+            dialogTitle: 'Salvar ou compartilhar PDF'
+          });
+        } else {
+          alert('✅ PDF gerado com sucesso no dispositivo!');
+        }
         cleanup();
         return;
       } catch (capacitorErr) {
