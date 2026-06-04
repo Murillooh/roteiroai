@@ -3254,7 +3254,7 @@ const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
 async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey, onChunk) {
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
   const payload = {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
@@ -3262,7 +3262,7 @@ async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey, onC
     contents: Array.isArray(userMessageOrContents)
       ? userMessageOrContents.map(m => ({
           ...m,
-          role: m.role === 'model' ? 'assistant' : m.role
+          role: m.role === 'assistant' ? 'model' : m.role
         }))
       : [
           { role: 'user', parts: [{ text: userMessageOrContents }] }
