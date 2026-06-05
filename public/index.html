@@ -5646,7 +5646,9 @@ function createStandardPDFElement(aiText) {
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
   element.style.position = 'absolute';
-  element.style.left = '-9999px';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-9999';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -5692,7 +5694,9 @@ function createCustomPDFElement(type, date, title, aiText) {
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
   element.style.position = 'absolute';
-  element.style.left = '-9999px';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-9999';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -5737,7 +5741,9 @@ async function downloadReportPDF(aiText) {
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
   element.style.position = 'absolute';
-  element.style.left = '-9999px';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-9999';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -5962,6 +5968,17 @@ async function downloadReportPDF(aiText) {
 }
 
 async function exportPDFElement(element, opt, loadingModal = null, originalTitle = '', originalDesc = '') {
+  // ATENÇÃO: O html2canvas PRECISA que o elemento esteja no DOM para renderizar corretamente
+  // Se não estiver, o PDF sai em branco no celular/web!
+  if (!element.parentNode) {
+    // Esconder o elemento visualmente mas manter na tela para o html2canvas ler
+    element.style.position = 'absolute';
+    element.style.top = '0px';
+    element.style.left = '0px';
+    element.style.zIndex = '-9999';
+    document.body.appendChild(element);
+  }
+
   const cleanup = () => {
     if (element && element.parentNode) {
       element.parentNode.removeChild(element);
@@ -6098,7 +6115,9 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
   element.style.position = 'absolute';
-  element.style.left = '-9999px';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-9999';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -6653,7 +6672,9 @@ async function generateMonthlyPDF(userId, month, year) {
   element.style.fontFamily = "'Inter', sans-serif";
   element.style.padding = '0';
   element.style.position = 'absolute';
-  element.style.left = '-9999px';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-9999';
   element.innerHTML = createMonthlyPDFTemplate(userName, monthName, year, taskGroups, summary, aiSummary);
   document.body.appendChild(element);
 
