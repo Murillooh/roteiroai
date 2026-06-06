@@ -50,6 +50,7 @@ const supabase = createClient(
 );
 
 // ── Rate Limiting (Máximo de 30 requisições por minuto por IP na rota /api/chat) ──
+app.set('trust proxy', 1);
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 30, // limite de 30 requisições
