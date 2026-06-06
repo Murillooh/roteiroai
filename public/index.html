@@ -3295,7 +3295,7 @@ const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
 async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey, onChunk) {
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
   const payload = {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
@@ -6038,7 +6038,36 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
 
     if (!isNative) {
       updateStatus('Gerando PDF Web...');
-      await html2pdf().set(opt).from(element).save();
+      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+      
+      const file = new File([pdfBlob], opt.filename || 'relatorio.pdf', { type: 'application/pdf' });
+      
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        updateStatus('Abrindo menu de envio...');
+        try {
+          await navigator.share({
+            files: [file],
+            title: opt.filename || 'Relatório PDF',
+            text: 'Aqui está o relatório em PDF.'
+          });
+        } catch (shareErr) {
+          console.warn('Share failed or cancelled:', shareErr);
+          // Fallback to download
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = opt.filename || 'relatorio.pdf';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = opt.filename || 'relatorio.pdf';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
       cleanup();
       return;
     }
