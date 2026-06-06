@@ -12,18 +12,25 @@ const rateLimit  = require('express-rate-limit');
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// Configuração do LiveReload para desenvolvimento
-const livereload = require('livereload');
-const connectLivereload = require('connect-livereload');
-const liveReloadServer = livereload.createServer();
-liveReloadServer.watch(path.join(__dirname, 'public'));
-liveReloadServer.server.once("connection", () => {
-  setTimeout(() => {
-    liveReloadServer.refresh("/");
-  }, 100);
-});
+// Configuração do LiveReload para desenvolvimento (apenas fora de produção/Vercel)
+const isProd = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
 
-app.use(connectLivereload());
+if (!isProd) {
+  try {
+    const livereload = require('livereload');
+    const connectLivereload = require('connect-livereload');
+    const liveReloadServer = livereload.createServer();
+    liveReloadServer.watch(path.join(__dirname, 'public'));
+    liveReloadServer.server.once("connection", () => {
+      setTimeout(() => {
+        liveReloadServer.refresh("/");
+      }, 100);
+    });
+    app.use(connectLivereload());
+  } catch (e) {
+    console.warn('Erro ao configurar LiveReload:', e.message);
+  }
+}
 
 app.use(cors());
 app.use(express.json());
@@ -165,10 +172,14 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  const keySource = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) ? '.env' : 'interface do usuário';
-  console.log(`\n✅ TarefasIA rodando em http://localhost:${PORT}`);
-  console.log(`   Modelo: Google Gemini 2.5 Flash`);
-  console.log(`   Chave de API: configurada via ${keySource}`);
-  console.log(`   Pressione Ctrl+C para parar.\n`);
-});
+if (!isProd) {
+  app.listen(PORT, () => {
+    const keySource = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) ? '.env' : 'interface do usuário';
+    console.log(`\n✅ TarefasIA rodando em http://localhost:${PORT}`);
+    console.log(`   Modelo: Google Gemini 1.5 Flash`);
+    console.log(`   Chave de API: configurada via ${keySource}`);
+    console.log(`   Pressione Ctrl+C para parar.\n`);
+  });
+}
+
+module.exports = app;
