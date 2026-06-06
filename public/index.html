@@ -5560,7 +5560,7 @@ async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
       };
     }
 
-    document.body.appendChild(element);
+    // document.body.appendChild(element); removed for safe HTML rendering
 
     console.log('🔵 Gerando PDF para compartilhamento...');
     const dataUri = await html2pdf().set(opt).from(element).outputPdf('datauristring');
@@ -5961,7 +5961,7 @@ async function downloadReportPDF(aiText) {
   `;
 
   element.innerHTML = page1HTML + page2HTML;
-  document.body.appendChild(element);
+  // document.body.appendChild(element); removed for safe HTML rendering
 
   const opt = {
     margin:       0,
@@ -5975,15 +5975,21 @@ async function downloadReportPDF(aiText) {
 }
 
 async function exportPDFElement(element, opt, loadingModal = null, originalTitle = '', originalDesc = '') {
+  // Tentar encontrar o modal se não foi passado (caso do botão de enviar da IA)
+  if (!loadingModal) {
+    loadingModal = document.getElementById('loadingPdfModal');
+  }
+
   const updateStatus = (text) => {
     if (loadingModal) {
       const modalDesc = loadingModal.querySelector('.modal-desc');
       if (modalDesc) modalDesc.innerText = text;
     }
+    console.log('PDF Status:', text);
   };
 
   const cleanup = () => {
-    if (element && element.parentNode) element.parentNode.removeChild(element);
+    // Não precisamos remover o element do DOM porque nem vamos anexá-lo!
     if (loadingModal) {
       loadingModal.style.display = 'none';
       const modalTitle = loadingModal.querySelector('.modal-title');
@@ -5994,28 +6000,20 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
   };
 
   try {
-    updateStatus('Preparando documento...');
+    updateStatus('Preparando documento visual...');
 
-    // Limpa propriedades que causavam travamento no html2canvas
-    element.style.position = 'relative';
-    element.style.top = 'auto';
-    element.style.left = 'auto';
-    element.style.zIndex = 'auto';
-    
-    // Adicionar temporariamente a um container invisível mas renderizável
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '0px';
-    container.style.width = '0px';
-    container.style.height = '0px';
-    container.style.overflow = 'hidden';
-    container.style.top = '0px';
-    container.appendChild(element);
-    document.body.appendChild(container);
+    // Garantir que a largura está em px e não em mm para evitar bug do html2canvas
+    if (element.style.width && element.style.width.includes('mm')) {
+       element.style.width = '800px';
+    }
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // NÃO anexamos o elemento ao document.body!
+    // Usaremos outerHTML para que o html2pdf renderize num iframe seguro internamente.
+    const htmlString = element.outerHTML;
 
-    updateStatus('Lendo HTML...');
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    updateStatus('Iniciando conversão...');
     
     const isNative = window.Capacitor && window.Capacitor.isNative;
     
@@ -6023,26 +6021,24 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
       ...opt.html2canvas,
       scale: 2,
       useCORS: true,
-      scrollY: 0,
-      scrollX: 0
+      logging: false
     };
 
     if (!isNative) {
-      console.log('🔵 Tentando html2pdf().save()...');
-      await html2pdf().set(opt).from(element).save();
-      container.remove();
+      updateStatus('Gerando PDF Web...');
+      await html2pdf().set(opt).from(htmlString).save();
       cleanup();
       return;
     }
 
-    updateStatus('Convertendo (Mobile)...');
-    const dataUri = await html2pdf().set(opt).from(element).outputPdf('datauristring');
+    updateStatus('Renderizando páginas...');
+    const dataUri = await html2pdf().set(opt).from(htmlString).outputPdf('datauristring');
 
     if (!dataUri || dataUri.length < 100) {
-      throw new Error('PDF vazio.');
+      throw new Error('PDF vazio ou falha na conversão.');
     }
 
-    updateStatus('Salvando...');
+    updateStatus('Salvando PDF no dispositivo...');
 
     const { Filesystem, Share } = window.Capacitor.Plugins;
     const base64 = dataUri.split(',')[1];
@@ -6054,7 +6050,7 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
       recursive: true
     });
 
-    updateStatus('Compartilhando...');
+    updateStatus('Abrindo menu de envio...');
 
     await Share.share({
       title: opt.filename || 'Relatório PDF',
@@ -6062,11 +6058,9 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
       dialogTitle: 'Visualizar Relatório'
     });
 
-    container.remove();
     cleanup();
   } catch (err) {
     console.error('Erro detalhado PDF:', err);
-    if (typeof container !== 'undefined') container.remove();
     alert('❌ Erro ao gerar PDF: ' + err.message);
     cleanup();
   }
@@ -6549,7 +6543,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     element.innerHTML = page1HTML + page2HTML;
   }
 
-  document.body.appendChild(element);
+  // document.body.appendChild(element); removed for safe HTML rendering
 
   const opt = {
     margin:       0,
@@ -6650,7 +6644,7 @@ async function generateMonthlyPDF(userId, month, year) {
   element.style.left = '0px';
   element.style.zIndex = '-1';
   element.innerHTML = createMonthlyPDFTemplate(userName, monthName, year, taskGroups, summary, aiSummary);
-  document.body.appendChild(element);
+  // document.body.appendChild(element); removed for safe HTML rendering
 
   const opt = {
     margin: 10,
