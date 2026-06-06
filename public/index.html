@@ -5544,7 +5544,7 @@ async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
         margin: 0,
         filename: fileName,
         image: { type: 'jpeg', quality: 0.99 },
-        html2canvas: { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#000000' },
+        html2canvas: { scale: 3, useCORS: true, backgroundColor: '#000000' },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
     } else {
@@ -5555,7 +5555,7 @@ async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
         margin: 0,
         filename: fileName,
         image: { type: 'jpeg', quality: 0.99 },
-        html2canvas: { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#000000' },
+        html2canvas: { scale: 3, useCORS: true, backgroundColor: '#000000' },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
     }
@@ -5967,7 +5967,7 @@ async function downloadReportPDF(aiText) {
     margin:       0,
     filename:     `relatorio_tarefas_ia_${now.toISOString().slice(0,10)}.pdf`,
     image:        { type: 'jpeg', quality: 0.99 },
-    html2canvas:  { scale: 1, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#ffffff' },
+    html2canvas:  { scale: 1, useCORS: true, backgroundColor: '#ffffff' },
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
@@ -5976,7 +5976,7 @@ async function downloadReportPDF(aiText) {
 
 async function exportPDFElement(element, opt, loadingModal = null, originalTitle = '', originalDesc = '') {
   if (!loadingModal) {
-    loadingModal = document.getElementById('loadingPdfModal');
+    loadingModal = document.getElementById('loadingModal');
   }
 
   let originalBg = '';
@@ -6033,7 +6033,7 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
       useCORS: true,
       scrollY: 0,
       scrollX: 0,
-      windowWidth: 800
+      
     };
 
     if (!isNative) {
@@ -6561,7 +6561,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     margin:       0,
     filename:     `relatorio_tarefas_ia_${type}_${date}.pdf`,
     image:        { type: 'jpeg', quality: 0.99 },
-    html2canvas:  { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#000000' },
+    html2canvas:  { scale: 3, useCORS: true, backgroundColor: '#000000' },
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
@@ -6662,7 +6662,7 @@ async function generateMonthlyPDF(userId, month, year) {
     margin: 10,
     filename: fileName,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#0a0a0a' },
+    html2canvas: { scale: 3, useCORS: true, backgroundColor: '#0a0a0a' },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
