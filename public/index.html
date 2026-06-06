@@ -5930,7 +5930,7 @@ async function downloadReportPDF(aiText) {
   `;
 
   const page1HTML = `
-    <div style="box-sizing: border-box; width: 800px; height: 296mm; padding: 12mm 15mm; background-color: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
+    <div style="box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
       <div>
         ${headerHTML}
         ${statsHTML}
@@ -5942,7 +5942,7 @@ async function downloadReportPDF(aiText) {
   `;
 
   const page2HTML = `
-    <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 296mm; padding: 12mm 15mm; background-color: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
+    <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
       <div>
         <div style="margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
           <span style="font-size: 12px; color: #111; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Cronograma Detalhado de Atividades</span>
@@ -5975,9 +5975,14 @@ async function downloadReportPDF(aiText) {
 }
 
 async function exportPDFElement(element, opt, loadingModal = null, originalTitle = '', originalDesc = '') {
-  // Tentar encontrar o modal se não foi passado (caso do botão de enviar da IA)
   if (!loadingModal) {
     loadingModal = document.getElementById('loadingPdfModal');
+  }
+
+  let originalBg = '';
+  if (loadingModal) {
+    originalBg = loadingModal.style.backgroundColor;
+    loadingModal.style.backgroundColor = '#1a1a1a'; // Solid background to hide PDF
   }
 
   const updateStatus = (text) => {
@@ -5989,9 +5994,10 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
   };
 
   const cleanup = () => {
-    // Não precisamos remover o element do DOM porque nem vamos anexá-lo!
+    if (element && element.parentNode) element.parentNode.removeChild(element);
     if (loadingModal) {
       loadingModal.style.display = 'none';
+      loadingModal.style.backgroundColor = originalBg;
       const modalTitle = loadingModal.querySelector('.modal-title');
       const modalDesc = loadingModal.querySelector('.modal-desc');
       if (modalTitle && originalTitle) modalTitle.innerHTML = originalTitle;
@@ -6002,16 +6008,20 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
   try {
     updateStatus('Preparando documento visual...');
 
-    // Garantir que a largura está em px e não em mm para evitar bug do html2canvas
-    if (element.style.width && element.style.width.includes('mm')) {
-       element.style.width = '800px';
-    }
+    // Substituir dimensões mm por px para evitar crash no html2canvas
+    if (element.style.width && element.style.width.includes('mm')) element.style.width = '800px';
+    
+    // Configuração crucial para NÃO travar a memória (OOM):
+    // Tem que estar no DOM visível, na coordenada 0,0.
+    // Usamos z-index: 1 (fica atrás do modal que tem z-index alto e fundo sólido).
+    element.style.position = 'absolute';
+    element.style.top = '0px';
+    element.style.left = '0px';
+    element.style.zIndex = '1';
+    
+    document.body.appendChild(element);
 
-    // NÃO anexamos o elemento ao document.body!
-    // Usaremos outerHTML para que o html2pdf renderize num iframe seguro internamente.
-    const htmlString = element.outerHTML;
-
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     updateStatus('Iniciando conversão...');
     
@@ -6021,18 +6031,20 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
       ...opt.html2canvas,
       scale: 2,
       useCORS: true,
-      logging: false
+      scrollY: 0,
+      scrollX: 0,
+      windowWidth: 800
     };
 
     if (!isNative) {
       updateStatus('Gerando PDF Web...');
-      await html2pdf().set(opt).from(htmlString).save();
+      await html2pdf().set(opt).from(element).save();
       cleanup();
       return;
     }
 
     updateStatus('Renderizando páginas...');
-    const dataUri = await html2pdf().set(opt).from(htmlString).outputPdf('datauristring');
+    const dataUri = await html2pdf().set(opt).from(element).outputPdf('datauristring');
 
     if (!dataUri || dataUri.length < 100) {
       throw new Error('PDF vazio ou falha na conversão.');
@@ -6195,7 +6207,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     `;
 
     const pageHTML = `
-      <div style="box-sizing: border-box; width: 800px; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           ${headerHTML}
           ${statsHTML}
@@ -6366,7 +6378,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     });
 
     const page1HTML = `
-      <div style="box-sizing: border-box; width: 800px; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           ${headerHTML}
           ${statsHTML}
@@ -6381,7 +6393,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     `;
 
     const page2HTML = `
-      <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           <div style="margin-bottom: 15px; border-bottom: 2px solid #1f1f1f; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 12px; color: #e8e8e8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Cronograma Detalhado da Semana</span>
@@ -6504,7 +6516,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     }
 
     const page1HTML = `
-      <div style="box-sizing: border-box; width: 800px; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           ${headerHTML}
           ${statsHTML}
@@ -6524,7 +6536,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     `;
 
     const page2HTML = `
-      <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           <div style="margin-bottom: 12px; border-bottom: 2px solid #1f1f1f; padding-bottom: 6px; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 11px; color: #e8e8e8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Detalhamento Cronológico das Atividades</span>
@@ -6824,7 +6836,7 @@ function createMonthlyPDFTemplate(userName, monthName, year, weekGroups, metrics
   }).join('');
 
   return `
-    <div style="width:800px;min-height:297mm;background:#0a0a0a;color:#e8e8e8;padding:10mm 12mm;">
+    <div style="width:800px;min-height:1120px;background:#0a0a0a;color:#e8e8e8;padding:10mm 12mm;">
       <div style="padding:20px;border:1px solid #111111;border-radius:22px;background:linear-gradient(180deg, rgba(10,10,10,0.96), rgba(12,12,12,0.98));box-shadow:0 30px 80px rgba(0,255,136,0.08);">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px;">
           <div style="display:flex;align-items:center;gap:14px;">
