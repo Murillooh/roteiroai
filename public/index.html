@@ -2415,7 +2415,33 @@
 </div>
 
 
-
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="apiModal" style="display:none">
+  <div class="modal">
+    <div class="modal-title">Configurar <span>API Key</span></div>
+    <div class="modal-desc">
+      Para usar o assistente IA, insira sua chave da API do Google (Gemini).<br>
+      Ela é salva apenas localmente no seu navegador e é <strong>gratuita</strong>.
+    </div>
+    <div class="modal-label">CHAVE DE API GOOGLE (GEMINI)</div>
+    <input
+      type="password"
+      id="apiKeyInput"
+      class="modal-input"
+      placeholder="AIzaSy..."
+      autocomplete="off"
+      spellcheck="false"
+    />
+    <div class="modal-hint">
+      Obtenha sua chave gratuita em
+      <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>.
+      A chave começa com <code>AIza</code>.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal" onclick="closeModal()" id="modalSkipBtn">Depois</button>
+      <button class="btn-modal primary" onclick="saveApiKey()">Salvar e Conectar</button>
+    </div>
+  </div>
 </div>
 
 <!-- LOADING MODAL FOR PDF -->
@@ -2910,13 +2936,6 @@
       
       <div class="db-box" style="padding: 0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
         
-          <div style="color: var(--sub); font-size: 16px; display: flex; align-items: center; margin-left: 8px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;"><polyline points="9 18 15 12 9 6"></polyline></svg>
-          </div>
-        </div>
-      </div>
-
-      <!-- Notifications Panel -->
       <div style="font-size: 10px; font-weight: 700; letter-spacing: 0.1em; color: var(--sub); text-transform: uppercase; margin-top: 5px; margin-bottom: 5px; text-align: left;">Notificações</div>
 
       <div class="db-box" style="padding: 0; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
@@ -3361,7 +3380,7 @@ async function callGeminiProxy(body, onChunk) {
   return handleSSE(res, onChunk);
 }
 
-async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, null, useContents = false, onChunk) {
+async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, localKey, useContents = false, onChunk) {
   const body = {
     systemPrompt,
     ...(useContents ? { contents: messageOrContents } : { userMessage: messageOrContents }),
@@ -3851,6 +3870,1689 @@ _supabase.auth.onAuthStateChange(async (event, session) => {
 });
 
 // ── Modal (API Key) ───────────────────────────────────────────────────────────
+function showModal() {
+  document.getElementById('apiModal').style.display = 'flex';
+  const existing = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw') || '';
+  document.getElementById('apiKeyInput').value = existing ? '•'.repeat(20) : '';
+  document.getElementById('apiKeyInput').placeholder = existing ? 'Chave salva (clique para alterar)' : 'AIzaSy...';
+  document.getElementById('modalSkipBtn').style.display = existing ? 'block' : 'none';
+}
+
+function closeModal() {
+  document.getElementById('apiModal').style.display = 'none';
+}
+
+function saveApiKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val || val.startsWith('•')) { closeModal(); return; }
+  localStorage.setItem('google_api_key', val);
+  closeModal();
+  setStatus(true);
+  addAIMessage('assistant', '✅ Chave do Google configurada! Agora posso te ajudar com seu roteiro usando o Gemini. Tente um dos botões rápidos ou me faça uma pergunta.');
+}
+
+// ── Status ────────────────────────────────────────────────────────────────────
+function setStatus(connected) {
+  isAIReady = connected;
+  const st = document.getElementById('topbarStatus');
+  const tx = document.getElementById('statusText');
+  if (connected) {
+    st.className = 'topbar-status';
+    tx.textContent = 'IA conectada';
+  } else {
+    st.className = 'topbar-status error';
+    tx.textContent = 'API Key ausente';
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  // Inicializa o seletor na Visão Geral (Dashboard)
+  setActiveDay('dashboard');
+
+  // Verifica se o servidor já tem a chave configurada no .env
+  let serverHasKey = false;
+  try {
+    let headers = {};
+    if (_supabase && _supabase.auth) {
+      const sessionRes = await _supabase.auth.getSession();
+      const token = (sessionRes.data && sessionRes.data.session) ? sessionRes.data.session.access_token : '';
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+    const res = await fetchWithTimeout(`${BASE_URL}/api/status`, { headers, timeout: 4000 });
+    const data = await res.json();
+    serverHasKey = data.serverHasKey === true;
+  } catch (e) {
+    console.warn('Não foi possível verificar status do servidor:', e.message);
+  }
+
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
+  const isReady  = serverHasKey || !!localKey;
+  setStatus(isReady);
+
+  if (serverHasKey) {
+    const configBtn = document.getElementById('configBtn');
+    if (configBtn) configBtn.style.display = 'none';
+  }
+
+  // Carrega o histórico de mensagens salvas
+  loadChatHistory();
+
+  if (!isReady) {
+    setTimeout(showModal, 800);
+  }
+}
+
+function showWelcomeMessage() {
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
+  const isReady = isAIReady || !!localKey;
+  
+  if (!isReady) {
+    addAIMessage('assistant',
+      'Olá! 👋 Para usar o assistente IA, clique em <strong>⚙ API</strong> no topo e insira sua chave do Google (Gemini).\n\nA chave é gratuita — obtenha em aistudio.google.com/apikey\n\nEnquanto isso, você já pode registrar suas tarefas normalmente.',
+      false, false, null, true
+    );
+  } else {
+    addAIMessage('assistant',
+      `Olá! 👋 Sou seu assistente de roteiro com Google Gemini.
+
+Posso planejar reuniões, analisar suas produtividade semanal, e gerenciar seu calendário completo de visitas.
+
+💡 **Agendamento por IA**: Experimente digitar no chat: *"Criar uma tarefa para o dia 25/06 às 8 horas da manhã e me lembrar"* que eu agendarei e posicionarei a tarefa diretamente no seu calendário!`,
+      false, false, null, true
+    );
+  }
+}
+
+function loadChatHistory() {
+  const msgs = document.getElementById('aiMessages');
+  if (!msgs) return;
+  msgs.innerHTML = '';
+  chatHistory = [];
+
+  if (!currentUser) return;
+  const saved = localStorage.getItem(`chat_history_${currentUser.id}`);
+  if (saved) {
+    try {
+      chatHistory = JSON.parse(saved);
+      if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+        chatHistory = chatHistory.map(m => {
+          if (m && Array.isArray(m.parts)) {
+            return {
+              role: m.role === 'assistant' ? 'model' : m.role,
+              parts: m.parts,
+              isReport: m.isReport,
+              fileConfig: m.fileConfig
+            };
+          }
+          return {
+            role: m.role === 'assistant' ? 'model' : m.role,
+            parts: [{ text: m.text || '' }],
+            isReport: m.isReport,
+            fileConfig: m.fileConfig
+          };
+        });
+
+        chatHistory.forEach(m => {
+          const displayRole = m.role === 'model' ? 'assistant' : m.role;
+          const text = m.parts.map(p => p.text || '').join('');
+          addAIMessage(displayRole, text, false, m.isReport, m.fileConfig, true);
+        });
+      }
+    } catch (e) {
+      console.error('Error loading chat history:', e);
+    }
+  }
+
+  if (chatHistory.length === 0) {
+    showWelcomeMessage();
+  }
+
+  updateChatHistoryCounter();
+}
+
+function clearChatHistory() {
+  if (!currentUser) return;
+  if (!confirm('Deseja limpar todo o histórico de conversas do chat?')) return;
+  
+  localStorage.removeItem(`chat_history_${currentUser.id}`);
+  chatHistory = [];
+  
+  const msgs = document.getElementById('aiMessages');
+  if (msgs) msgs.innerHTML = '';
+  
+  showWelcomeMessage();
+  updateChatHistoryCounter();
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function renderSidebar() {
+  const list = document.getElementById('dayList');
+  list.innerHTML = '';
+
+  // 1. Inserir botão de Visão Geral (Dashboard)
+  const dbItem = document.createElement('div');
+  dbItem.className = 'day-item' + (activeDay === 'dashboard' ? ' active' : '');
+  dbItem.style.setProperty('--accent-color', 'var(--ai)');
+  dbItem.style.borderLeftColor = activeDay === 'dashboard' ? 'var(--ai)' : 'transparent';
+  dbItem.innerHTML = `
+    <div class="day-dot" style="background:var(--ai); box-shadow: 0 0 8px var(--ai)"></div>
+    <div class="day-info">
+      <div class="day-name">Visão Geral</div>
+      <div class="day-dest">Painel consolidado</div>
+    </div>
+    <div class="day-badge" style="color:var(--ai); border:1px solid var(--ai)22; background:var(--ai)11">
+      📊
+    </div>
+  `;
+  dbItem.onclick = () => setActiveDay('dashboard');
+  list.appendChild(dbItem);
+
+  // 1.5. Inserir botão de Pesquisar (Search)
+  const searchItem = document.createElement('div');
+  searchItem.className = 'day-item' + (activeDay === 'search' ? ' active' : '');
+  searchItem.style.setProperty('--accent-color', 'var(--blue)');
+  searchItem.style.borderLeftColor = activeDay === 'search' ? 'var(--blue)' : 'transparent';
+  searchItem.innerHTML = `
+    <div class="day-dot" style="background:var(--blue); box-shadow: 0 0 8px var(--blue)"></div>
+    <div class="day-info">
+      <div class="day-name">Pesquisar</div>
+      <div class="day-dest">Buscar no histórico</div>
+    </div>
+    <div class="day-badge" style="color:var(--blue); border:1px solid var(--blue)22; background:var(--blue)11">
+      🔍
+    </div>
+  `;
+  searchItem.onclick = () => setActiveDay('search');
+  list.appendChild(searchItem);
+
+  // 2. Inserir os dias da semana dinâmicos
+  DAYS.forEach(d => {
+    const dayTasks = tasks[d.id] || [];
+    const done     = dayTasks.filter(t => t.done).length;
+    const total    = dayTasks.length;
+    const el = document.createElement('div');
+    el.className = 'day-item' + (d.id === activeDay ? ' active' : '');
+    el.style.setProperty('--accent-color', d.color);
+    el.style.borderLeftColor = d.id === activeDay ? d.color : 'transparent';
+    el.innerHTML = `
+      <div class="day-dot" style="background:${d.color}"></div>
+      <div class="day-info">
+        <div class="day-name">${d.name} <span style="font-size:10px; color:var(--sub); font-weight:400">(${d.dateLabel})</span></div>
+        <div class="day-dest">${d.dest ? d.dest + ' · ' : ''}${total > 0 ? done + '/' + total + ' tarefas' : 'Sem tarefas'}</div>
+      </div>
+      <div class="day-badge" style="color:${d.color};border:1px solid ${d.color}22;background:${d.color}11">
+        ${d.special ? '⚡' : '📍'}
+      </div>
+    `;
+    el.onclick = () => {
+      activeDay = d.id;
+      currentCalendarMonth = new Date(d.id + 'T00:00:00');
+      renderCalendar();
+      setActiveDay(d.id);
+    };
+    list.appendChild(el);
+  });
+
+  // 3. Inserir botão de Configurações (Settings) no final
+  const configItem = document.createElement('div');
+  configItem.className = 'day-item' + (activeDay === 'config' ? ' active' : '');
+  configItem.style.setProperty('--accent-color', 'var(--purple)');
+  configItem.style.borderLeftColor = activeDay === 'config' ? 'var(--purple)' : 'transparent';
+  configItem.innerHTML = `
+    <div class="day-dot" style="background:var(--purple); box-shadow: 0 0 8px var(--purple)"></div>
+    <div class="day-info">
+      <div class="day-name">Configurações</div>
+      <div class="day-dest">Perfil e Preferências</div>
+    </div>
+    <div class="day-badge" style="color:var(--purple); border:1px solid var(--purple)22; background:var(--purple)11">
+      ⚙️
+    </div>
+  `;
+  configItem.onclick = () => setActiveDay('config');
+  list.appendChild(configItem);
+  
+  updateStats();
+
+  // Sincroniza labels das datas
+  const startStr = formatDateBR(currentWeekStart);
+  const endStr = formatDateBR(addDays(currentWeekStart, 6));
+  document.getElementById('weekNavLabel').textContent = `${startStr} - ${endStr}`;
+  
+  const opts = { day:'2-digit', month:'long', year:'numeric' };
+  const weekEnd = addDays(currentWeekStart, 6);
+  document.getElementById('weekLabel').textContent =
+    `Roteiro de ${currentWeekStart.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})} a ${weekEnd.toLocaleDateString('pt-BR', opts)}`;
+}
+
+function updateStats() {
+  let total = 0, done = 0;
+  DAYS.forEach(d => {
+    const t = tasks[d.id] || [];
+    total += t.length;
+    done  += t.filter(x => x.done).length;
+  });
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statDone').textContent  = done;
+  document.getElementById('statPct').textContent   = total ? Math.round(done/total*100)+'%' : '0%';
+}
+
+// ── Mobile View Switching ─────────────────────────────────────────────────────
+function switchMobileView(view) {
+  document.body.setAttribute('data-mobile-view', view);
+  
+  const buttons = document.querySelectorAll('.bottom-nav-btn');
+  buttons.forEach(btn => btn.classList.remove('active'));
+  
+  if (view === 'agenda' || view === 'tasks') {
+    document.getElementById('btnNavAgenda')?.classList.add('active');
+  } else if (view === 'search') {
+    document.getElementById('btnNavSearch')?.classList.add('active');
+  } else if (view === 'dashboard') {
+    document.getElementById('btnNavDashboard')?.classList.add('active');
+  } else if (view === 'chat') {
+    document.getElementById('btnNavChat')?.classList.add('active');
+  } else if (view === 'config') {
+    document.getElementById('btnNavConfig')?.classList.add('active');
+  }
+}
+
+// ── Active Day ────────────────────────────────────────────────────────────────
+function setActiveDay(id) {
+  activeDay = id;
+  renderSidebar();
+
+  const dailyView = document.getElementById('dailyView');
+  const dashboardView = document.getElementById('dashboardView');
+  const searchView = document.getElementById('searchView');
+  const configView = document.getElementById('configView');
+
+  if (id === 'dashboard') {
+    dailyView.style.display = 'none';
+    dashboardView.style.display = 'flex';
+    if (searchView) searchView.style.display = 'none';
+    if (configView) configView.style.display = 'none';
+    renderDashboard();
+    if (window.innerWidth <= 992) {
+      switchMobileView('dashboard');
+    }
+  } else if (id === 'search') {
+    dailyView.style.display = 'none';
+    dashboardView.style.display = 'none';
+    if (configView) configView.style.display = 'none';
+    if (searchView) {
+      searchView.style.display = 'flex';
+      renderRecentSearches();
+    }
+    if (window.innerWidth <= 992) {
+      switchMobileView('search');
+    }
+  } else if (id === 'config') {
+    dailyView.style.display = 'none';
+    dashboardView.style.display = 'none';
+    if (searchView) searchView.style.display = 'none';
+    if (configView) {
+      configView.style.display = 'flex';
+      showConfigMain();
+      renderConfigScreen();
+    }
+    if (window.innerWidth <= 992) {
+      switchMobileView('config');
+    }
+  } else {
+    dailyView.style.display = 'flex';
+    dashboardView.style.display = 'none';
+    if (searchView) searchView.style.display = 'none';
+    if (configView) configView.style.display = 'none';
+    if (window.innerWidth <= 992) {
+      switchMobileView('tasks');
+    }
+
+    const d = DAYS.find(x => x.id === id);
+    if (!d) return;
+
+    document.getElementById('accentBar').style.background       = d.color;
+    document.getElementById('dayTitle').textContent              = d.name;
+    document.getElementById('daySubtitle').textContent           = d.dest ? '📍 ' + d.dest : '📍 Sem localidade definida';
+    document.getElementById('progressFill').style.background     = d.color;
+    document.getElementById('progressPct').style.color           = d.color;
+    const pill = document.getElementById('tipoPill');
+    pill.textContent       = d.tipo;
+    pill.style.color       = d.color;
+    pill.style.background  = d.color + '18';
+    pill.style.border      = `1px solid ${d.color}44`;
+    renderTasks();
+  }
+}
+
+// ── Configurations View Logic ──────────────────────────────────────────────────
+const THEME_COLORS = {
+  '#a9e34b': 'rgba(169, 227, 75, 0.35)',  // Lime Green
+  '#74c0fc': 'rgba(116, 192, 252, 0.35)', // Holographic Blue
+  '#ff85a2': 'rgba(255, 133, 162, 0.35)', // Hot Pink
+  '#ffa94d': 'rgba(255, 169, 77, 0.35)',  // Neon Orange
+  '#b197fc': 'rgba(177, 151, 252, 0.35)', // Electric Purple
+  '#69db7c': 'rgba(105, 219, 124, 0.35)', // Emerald Green
+  '#ff8787': 'rgba(255, 135, 135, 0.35)', // Coral Red
+  '#9e9e9e': 'rgba(158, 158, 158, 0.35)'  // Muted Gray
+};
+
+function calculateConfigStats() {
+  let totalTasks = 0;
+  let doneTasks = 0;
+  const uniqueWeeks = new Set();
+
+  Object.keys(tasks).forEach(dateStr => {
+    // Make sure we only process calendar dates YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const dayTasks = tasks[dateStr] || [];
+      if (dayTasks.length > 0) {
+        totalTasks += dayTasks.length;
+        doneTasks += dayTasks.filter(t => t.done).length;
+        
+        // Calculate week start for this date
+        try {
+          const date = new Date(dateStr + 'T00:00:00');
+          const day = date.getDay();
+          const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+          const weekStart = new Date(date.setDate(diff));
+          const weekStr = formatDateISO(weekStart);
+          uniqueWeeks.add(weekStr);
+        } catch (e) {
+          console.warn('Erro ao processar semana para a data:', dateStr);
+        }
+      }
+    }
+  });
+
+  const pct = totalTasks ? Math.round((doneTasks / totalTasks) * 100) : 0;
+  const weeksCount = uniqueWeeks.size;
+
+  return {
+    done: doneTasks,
+    weeks: weeksCount,
+    pct: pct
+  };
+}
+
+function renderConfigScreen() {
+  const avatarEl = document.getElementById('configUserAvatar');
+  const initialsEl = document.getElementById('configUserInitials');
+  const nameEl = document.getElementById('configUserName');
+  const emailEl = document.getElementById('configUserEmail');
+  
+  if (avatarEl) avatarEl.style.display = 'block';
+  if (initialsEl) initialsEl.style.display = 'none';
+  
+  if (currentUser) {
+    const meta = currentUser.user_metadata || {};
+    const name = meta.full_name || currentUser.email || 'Usuário RoteiroAI';
+    const email = currentUser.email || '';
+    const avatar = meta.avatar_url || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+    
+    if (nameEl) nameEl.textContent = name;
+    if (emailEl) emailEl.textContent = email;
+    if (avatarEl) avatarEl.src = avatar;
+  } else {
+    if (nameEl) nameEl.textContent = 'Visitante';
+    if (emailEl) emailEl.textContent = 'Não autenticado';
+    if (avatarEl) avatarEl.src = 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
+  }
+
+  // Calculate and display dynamic stats
+  const stats = calculateConfigStats();
+  document.getElementById('configStatDone').textContent = stats.done;
+  document.getElementById('configStatWeeks').textContent = stats.weeks;
+  document.getElementById('configStatPct').textContent = stats.pct + '%';
+
+  // Select the active color in picker and add checkmark
+  const savedColor = localStorage.getItem('roteiroai_theme_color') || '#a9e34b';
+  const buttons = document.querySelectorAll('.color-picker-btn');
+  let foundPredefined = false;
+  buttons.forEach(btn => {
+    btn.classList.remove('active');
+    if (!btn.classList.contains('custom-color')) {
+      btn.textContent = '';
+      if (btn.getAttribute('data-color') === savedColor) {
+        btn.classList.add('active');
+        btn.textContent = '✓';
+        foundPredefined = true;
+      }
+    } else {
+      btn.style.background = 'conic-gradient(from 90deg, #ff595e, #ffca3a, #8ac926, #1982c4, #6a4c93, #ff595e)';
+      btn.querySelector('.custom-color-icon').style.display = 'block';
+      btn.querySelector('.custom-color-check').style.display = 'none';
+    }
+  });
+
+  if (!foundPredefined) {
+    const customBtn = document.querySelector('.color-picker-btn.custom-color');
+    if (customBtn) {
+      customBtn.classList.add('active');
+      customBtn.style.background = savedColor;
+      const input = customBtn.querySelector('input[type="color"]');
+      if (input) input.value = savedColor;
+      customBtn.querySelector('.custom-color-icon').style.display = 'none';
+      customBtn.querySelector('.custom-color-check').style.display = 'block';
+    }
+  }
+
+  // Sync Dark/Light theme toggle
+  const isLight = document.body.classList.contains('light-theme');
+  const darkToggle = document.getElementById('darkThemeToggle');
+  if (darkToggle) darkToggle.checked = !isLight;
+  const darkSub = document.getElementById('darkThemeSubtitle');
+  if (darkSub) darkSub.textContent = isLight ? 'Modo claro ativado' : 'Modo noturno ativado';
+
+  // Sync Text Size Subtitle
+  const size = localStorage.getItem('roteiroai_text_size') || 'medium';
+  const sizeLabels = { 'small': 'Pequeno', 'medium': 'Médio', 'large': 'Grande' };
+  const sizeSub = document.getElementById('textSizeSubtitle');
+  if (sizeSub) sizeSub.textContent = sizeLabels[size] || 'Médio';
+
+  // Sync Accessibility/Animations Subtitle
+  const noAnims = document.body.classList.contains('no-animations');
+  const accessSub = document.getElementById('accessibilitySubtitle');
+  if (accessSub) accessSub.textContent = noAnims ? 'Animações desativadas' : 'Contraste e animações';
+
+  // Sync Notification Toggles
+  const notifTypes = ['tasks', 'daily', 'push'];
+  const notifSubtitles = {
+    tasks: { el: 'notifTasksSubtitle', on: 'Avisar antes do prazo', off: 'Desativado' },
+    daily: { el: 'notifDailySubtitle', on: 'Toda manhã às 8h', off: 'Desativado' },
+    push:  { el: 'notifPushSubtitle',  on: 'Notificações instantâneas', off: 'Desativado' }
+  };
+  notifTypes.forEach(type => {
+    const isOn = localStorage.getItem(`roteiroai_notif_${type}`) === 'true';
+    const toggle = document.getElementById(`notif${type.charAt(0).toUpperCase() + type.slice(1)}Toggle`);
+    if (toggle) toggle.checked = isOn;
+    const cfg = notifSubtitles[type];
+    const subEl = document.getElementById(cfg.el);
+    if (subEl) subEl.textContent = isOn ? cfg.on : cfg.off;
+  });
+}
+
+function changeAppThemeColor(color, element) {
+  const glow = THEME_COLORS[color] || 'rgba(255, 255, 255, 0.2)';
+  document.documentElement.style.setProperty('--ai', color);
+  document.documentElement.style.setProperty('--ai-glow', glow);
+  
+  localStorage.setItem('roteiroai_theme_color', color);
+  localStorage.setItem('roteiroai_theme_glow', glow);
+  
+  // Update active state in color picker
+  const buttons = document.querySelectorAll('.color-picker-btn');
+  buttons.forEach(btn => {
+    btn.classList.remove('active');
+    if (!btn.classList.contains('custom-color')) {
+      btn.textContent = '';
+    } else {
+      btn.style.background = 'conic-gradient(from 90deg, #ff595e, #ffca3a, #8ac926, #1982c4, #6a4c93, #ff595e)';
+      btn.querySelector('.custom-color-icon').style.display = 'block';
+      btn.querySelector('.custom-color-check').style.display = 'none';
+    }
+  });
+  
+  if (element) {
+    element.classList.add('active');
+    if (!element.classList.contains('custom-color')) {
+      element.textContent = '✓';
+    } else {
+      element.style.background = color;
+      element.querySelector('.custom-color-icon').style.display = 'none';
+      element.querySelector('.custom-color-check').style.display = 'block';
+    }
+  } else {
+    const btn = document.querySelector(`.color-picker-btn[data-color="${color}"]`);
+    if (btn) {
+      btn.classList.add('active');
+      btn.textContent = '✓';
+    } else {
+      const customBtn = document.querySelector('.color-picker-btn.custom-color');
+      if (customBtn) {
+        customBtn.classList.add('active');
+        customBtn.style.background = color;
+        const colorInput = customBtn.querySelector('input[type="color"]');
+        if (colorInput) colorInput.value = color;
+        customBtn.querySelector('.custom-color-icon').style.display = 'none';
+        customBtn.querySelector('.custom-color-check').style.display = 'block';
+      }
+    }
+  }
+
+  // Update accentBar and dashboard elements if open
+  const accentBar = document.getElementById('accentBar');
+  if (accentBar && activeDay === 'dashboard') {
+    accentBar.style.background = color;
+  }
+}
+
+function toggleDarkTheme(isDark) {
+  const subtitle = document.getElementById('darkThemeSubtitle');
+  if (isDark) {
+    document.body.classList.remove('light-theme');
+    localStorage.setItem('roteiroai_light_theme', 'false');
+    if (subtitle) subtitle.textContent = 'Modo noturno ativado';
+  } else {
+    document.body.classList.add('light-theme');
+    localStorage.setItem('roteiroai_light_theme', 'true');
+    if (subtitle) subtitle.textContent = 'Modo claro ativado';
+  }
+}
+
+function cycleTextSize() {
+  const size = localStorage.getItem('roteiroai_text_size') || 'medium';
+  let nextSize = 'medium';
+  if (size === 'small') nextSize = 'medium';
+  else if (size === 'medium') nextSize = 'large';
+  else if (size === 'large') nextSize = 'small';
+
+  const sizeMap = { 'small': '12.5px', 'medium': '14px', 'large': '16px' };
+  const sizeLabels = { 'small': 'Pequeno', 'medium': 'Médio', 'large': 'Grande' };
+  
+  document.documentElement.style.setProperty('--base-font-size', sizeMap[nextSize]);
+  localStorage.setItem('roteiroai_text_size', nextSize);
+  
+  const subtitle = document.getElementById('textSizeSubtitle');
+  if (subtitle) subtitle.textContent = sizeLabels[nextSize];
+}
+
+function toggleAccessibilitySettings() {
+  const noAnims = document.body.classList.contains('no-animations');
+  const nextNoAnims = !noAnims;
+  
+  if (nextNoAnims) {
+    document.body.classList.add('no-animations');
+    localStorage.setItem('roteiroai_no_animations', 'true');
+  } else {
+    document.body.classList.remove('no-animations');
+    localStorage.setItem('roteiroai_no_animations', 'false');
+  }
+
+  const subtitle = document.getElementById('accessibilitySubtitle');
+  if (subtitle) subtitle.textContent = nextNoAnims ? 'Animações desativadas' : 'Contraste e animações';
+}
+
+// ── Notifications Toggle ──────────────────────────────────────────────────────
+function toggleNotification(type, isEnabled) {
+  localStorage.setItem(`roteiroai_notif_${type}`, isEnabled ? 'true' : 'false');
+  
+  const subtitles = {
+    tasks: { el: 'notifTasksSubtitle', on: 'Avisar antes do prazo', off: 'Desativado' },
+    daily: { el: 'notifDailySubtitle', on: 'Toda manhã às 8h', off: 'Desativado' },
+    push:  { el: 'notifPushSubtitle',  on: 'Notificações instantâneas', off: 'Desativado' }
+  };
+  
+  const cfg = subtitles[type];
+  if (cfg) {
+    const el = document.getElementById(cfg.el);
+    if (el) el.textContent = isEnabled ? cfg.on : cfg.off;
+  }
+}
+
+function handleAvatarError() {
+  const avatarEl = document.getElementById('configUserAvatar');
+  const initialsEl = document.getElementById('configUserInitials');
+  if (avatarEl) avatarEl.style.display = 'none';
+  if (initialsEl) {
+    initialsEl.style.display = 'flex';
+    const nameEl = document.getElementById('configUserName');
+    const name = nameEl ? nameEl.textContent : 'U';
+    initialsEl.textContent = getInitials(name);
+  }
+}
+
+function getInitials(name) {
+  if (!name || name === 'Carregando...' || name === 'Visitante') return 'U';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return parts[0].substring(0, 2).toUpperCase();
+}
+
+// ── Account Settings ──────────────────────────────────────────────────────────
+// ── Helper Navigation for Configurations ──────────────────────────────────────
+function showConfigMain() {
+  document.getElementById('configMainContent').style.display = 'flex';
+  document.getElementById('configDetailsContent').style.display = 'none';
+}
+
+function showConfigDetails(title, bodyHTML) {
+  document.getElementById('configDetailsTitle').innerHTML = title;
+  document.getElementById('configDetailsBody').innerHTML = bodyHTML;
+  document.getElementById('configMainContent').style.display = 'none';
+  document.getElementById('configDetailsContent').style.display = 'flex';
+}
+
+function submitFeedbackForm() {
+  const textarea = document.getElementById('feedbackTextarea');
+  const text = textarea ? textarea.value.trim() : '';
+  if (!text) {
+    alert('Por favor, digite seu feedback antes de enviar.');
+    return;
+  }
+  
+  showConfigDetails('💬 Feedback Enviado', `
+    <div style="text-align: center; padding: 24px 0;">
+      <span style="font-size: 40px; display: block; margin-bottom: 12px;">✅</span>
+      <h4 style="font-size: 15px; margin-bottom: 8px; color: var(--text); font-family: 'Goldman', sans-serif;">Feedback recebido!</h4>
+      <p style="color: var(--sub); font-size: 12px; margin-bottom: 20px; max-width: 280px; margin-left: auto; margin-right: auto; line-height: 1.5;">Obrigado por nos ajudar a melhorar o TarefasIA. Nossa equipe analisará sua sugestão.</p>
+      <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 8px 16px; border-radius: 8px; font-size: 11px;">Voltar para Configurações</button>
+    </div>
+  `);
+}
+
+// ── Account Settings ──────────────────────────────────────────────────────────
+function openSecuritySettings() {
+  showConfigDetails('🔒 Segurança', `
+    <p style="margin-bottom: 12px;">Sua conta e seus dados estão totalmente protegidos no TarefasIA:</p>
+    <ul style="list-style-type: none; padding-left: 0; display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+      <li style="display: flex; gap: 8px;"><span style="color: var(--ai);">✦</span> <span><strong>Autenticação Segura:</strong> Acesso autenticado de ponta a ponta usando a infraestrutura do Google OAuth 2.0.</span></li>
+      <li style="display: flex; gap: 8px;"><span style="color: var(--ai);">✦</span> <span><strong>Armazenamento Criptografado:</strong> Todos os seus dados são guardados no Supabase com Row Level Security (RLS) ativo.</span></li>
+    </ul>
+    <p style="padding: 12px; background: rgba(255, 169, 77, 0.08); border-left: 3px solid var(--orange); border-radius: 6px; font-size: 12px; color: var(--orange); line-height: 1.5; margin-bottom: 16px;">
+      <strong>Nota sobre alteração de senha:</strong> Como você utiliza sua conta do Google para fazer login, para alterar sua senha ou configurar a autenticação de dois fatores, você deve acessar diretamente o painel de segurança da sua conta Google.
+    </p>
+    <div style="display: flex; gap: 8px;">
+      <a href="https://myaccount.google.com/security" target="_blank" class="btn-modal primary" style="text-decoration: none; padding: 10px 16px; border-radius: 8px; font-size: 11px; display: inline-flex; align-items: center;">Acessar Conta Google</a>
+      <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 10px 16px; border-radius: 8px; font-size: 11px;">Voltar</button>
+    </div>
+  `);
+}
+
+function openIntegrationsSettings() {
+  showConfigDetails('🔗 Integrações Ativas', `
+    <p style="margin-bottom: 14px;">TarefasIA está integrado com ferramentas externas para otimizar seu fluxo de trabalho:</p>
+    <ul style="list-style-type: none; padding-left: 0; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+      <li style="display: flex; align-items: flex-start; gap: 10px;">
+        <span style="font-size: 14px; line-height: 1;">🟢</span>
+        <div>
+          <strong>Google OAuth & Calendar:</strong>
+          <p style="font-size: 11.5px; color: var(--sub); margin-top: 2px;">Permite login rápido com um clique e sincronização automatizada de rotas diretamente na sua agenda.</p>
+        </div>
+      </li>
+      <li style="display: flex; align-items: flex-start; gap: 10px;">
+        <span style="font-size: 14px; line-height: 1;">🟢</span>
+        <div>
+          <strong>Notion Sync:</strong>
+          <p style="font-size: 11.5px; color: var(--sub); margin-top: 2px;">Exporta e espelha o seu roteiro de tarefas em blocos e tabelas dentro do seu workspace do Notion.</p>
+        </div>
+      </li>
+      <li style="display: flex; align-items: flex-start; gap: 10px;">
+        <span style="font-size: 14px; line-height: 1;">🟢</span>
+        <div>
+          <strong>Slack Channel:</strong>
+          <p style="font-size: 11.5px; color: var(--sub); margin-top: 2px;">Envia notificações automáticas e resumos de atividades do dia diretamente em canais de equipes do Slack.</p>
+        </div>
+      </li>
+    </ul>
+    <p style="font-size: 11px; color: var(--sub); margin-bottom: 16px; line-height: 1.4;">
+      * Para gerenciar as chaves de conexão destas integrações ou configurar novos canais de webhook personalizados, por favor contate o suporte.
+    </p>
+    <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 8px 16px; border-radius: 8px; font-size: 11px;">Voltar para Configurações</button>
+  `);
+}
+
+
+
+// ── Support Settings ──────────────────────────────────────────────────────────
+function openHelpCenter() {
+  showConfigDetails('📖 Central de Ajuda', `
+    <p style="margin-bottom: 14px; font-weight: 500;">Guia rápido para aproveitar ao máximo o TarefasIA:</p>
+    <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px;">
+      <div>
+        <h5 style="color: var(--ai); font-size: 13px; font-family: 'Goldman', sans-serif; margin-bottom: 4px;">📅 Agenda e Calendário</h5>
+        <p style="font-size: 12px; color: var(--sub); line-height: 1.4;">Use a aba <strong>Agenda</strong> na navegação inferior para se movimentar pelos dias da semana. Toque em qualquer tarefa para ver notas extras ou para definir horários detalhados.</p>
+      </div>
+      <div>
+        <h5 style="color: var(--ai); font-size: 13px; font-family: 'Goldman', sans-serif; margin-bottom: 4px;">✦ Inteligência Artificial (Chat)</h5>
+        <p style="font-size: 12px; color: var(--sub); line-height: 1.4;">O painel da IA auxilia na análise de roteiros. Você pode digitar mensagens, usar comandos por voz ou tocar nos botões de ação rápida para resumir as atividades do seu dia.</p>
+      </div>
+      <div>
+        <h5 style="color: var(--ai); font-size: 13px; font-family: 'Goldman', sans-serif; margin-bottom: 4px;">📊 Dashboard e Relatórios</h5>
+        <p style="font-size: 12px; color: var(--sub); line-height: 1.4;">A aba <strong>Dash</strong> traz dados consolidados da sua semana, gráficos de produtividade por dia e possibilita exportar lindos relatórios em formato PDF.</p>
+      </div>
+      <div>
+        <h5 style="color: var(--ai); font-size: 13px; font-family: 'Goldman', sans-serif; margin-bottom: 4px;">⚙ Personalização</h5>
+        <p style="font-size: 12px; color: var(--sub); line-height: 1.4;">Nas Configurações você pode escolher sua cor de destaque favorita para o painel, ligar ou desligar o modo escuro, e ajustar o tamanho dos textos das tarefas.</p>
+      </div>
+    </div>
+    <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 8px 16px; border-radius: 8px; font-size: 11px;">Voltar para Configurações</button>
+  `);
+}
+
+function openFeedbackForm() {
+  showConfigDetails('💬 Enviar Feedback', `
+    <p style="margin-bottom: 12px; line-height: 1.5;">O que você gostaria de nos dizer? Seu feedback é fundamental para o aprimoramento constante do TarefasIA.</p>
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+      <textarea id="feedbackTextarea" placeholder="Escreva aqui sua sugestão, crítica, elogio ou reporte de erro..." style="width: 100%; height: 120px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 12px; font-family: inherit; font-size: 12.5px; outline: none; resize: none; box-sizing: border-box; line-height: 1.5; transition: border-color .15s;" onfocus="this.style.borderColor='var(--ai)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn-modal primary" onclick="submitFeedbackForm()" style="padding: 10px 18px; border-radius: 8px; font-size: 11px;">Enviar Mensagem</button>
+      <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 10px 18px; border-radius: 8px; font-size: 11px;">Cancelar</button>
+    </div>
+  `);
+}
+
+function openTermsAndPrivacy() {
+  showConfigDetails('📄 Termos e Privacidade', `
+    <p style="margin-bottom: 12px; font-weight: bold; color: var(--ai); font-family: 'Goldman', sans-serif;">TarefasIA V1.0 · Munago Desenvolvedora de Software</p>
+    <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; font-size: 12.5px; color: var(--sub); line-height: 1.5; max-height: 250px; overflow-y: auto; padding-right: 8px;">
+      <p><strong>1. Armazenamento de Dados:</strong> Suas informações são guardadas de forma segura em servidores na nuvem (Supabase). Seus dados não são vendidos ou expostos.</p>
+      <p><strong>2. Uso do Google Gemini:</strong> Para gerar as análises inteligentes de rotas e resumos diários, enviamos o texto de suas tarefas aos servidores do Google Gemini por meio de conexões criptografadas seguras.</p>
+      <p><strong>3. Integração com Calendar:</strong> O acesso solicitado à sua conta Google destina-se exclusivamente para autenticação de usuário e, quando habilitado, para inserção de eventos em sua agenda pessoal.</p>
+      <p><strong>4. Exportação e Exclusão:</strong> Você tem total autonomia para exportar um backup JSON de todas as suas informações de tarefas e configurações locais. Caso queira deletar permanentemente seus dados do nosso banco de dados, você pode acionar a remoção de conta.</p>
+    </div>
+    <p style="font-size: 10px; color: var(--muted); margin-bottom: 16px;">© 2024-2026 TarefasIA · Munago Desenvolvedora de Software. Todos os direitos reservados.</p>
+    <button class="btn-modal secondary" onclick="showConfigMain()" style="padding: 8px 16px; border-radius: 8px; font-size: 11px;">Voltar para Configurações</button>
+  `);
+}
+
+// ── Renderização do Dashboard ─────────────────────────────────────────────────
+function renderDashboard() {
+  let total = 0, done = 0;
+  let chartHTML = '';
+  let basesHTML = '';
+  let pendingHTML = '';
+
+  DAYS.forEach(d => {
+    const t = tasks[d.id] || [];
+    const dCount = t.filter(x => x.done).length;
+    const tCount = t.length;
+    const pct = tCount ? Math.round((dCount / tCount) * 100) : 0;
+
+    total += tCount;
+    done  += dCount;
+
+    // Renderiza a barra do gráfico semanal
+    chartHTML += `
+      <div class="db-chart-bar-wrapper">
+        <div class="db-chart-value" style="color: ${d.color}">${pct}%</div>
+        <div class="db-chart-bar-bg" title="${d.name}: ${dCount}/${tCount} concluídas">
+          <div class="db-chart-bar-fill" style="height: ${pct}%; background: ${d.color}; --bar-color: ${d.color}"></div>
+        </div>
+        <div class="db-chart-label">${d.shortName}</div>
+      </div>
+    `;
+
+    // Renderiza a lista de progresso das bases
+    basesHTML += `
+      <div class="db-base-item">
+        <div class="db-base-info">
+          <span class="db-base-name" style="color: ${d.color}">${d.name} (${d.dest})</span>
+          <span style="color: var(--sub)">${dCount}/${tCount}</span>
+        </div>
+        <div class="db-base-progress-bg">
+          <div class="db-base-progress-fill" style="width: ${pct}%; background: ${d.color}"></div>
+        </div>
+      </div>
+    `;
+
+    // Renderiza as tarefas pendentes da semana divididas por dia
+    const pendingTasks = t.filter(x => !x.done);
+    if (pendingTasks.length > 0) {
+      pendingHTML += `
+        <div class="db-pending-group" style="--group-color: ${d.color}">
+          <div class="db-pending-day" style="color: ${d.color}">${d.name} (${d.dest})</div>
+      `;
+      pendingTasks.forEach(x => {
+        pendingHTML += `
+          <div class="db-pending-item">
+            <div class="task-check" onclick="toggleTask(${x.id})"></div>
+            <span class="db-pending-text">${x.text}</span>
+            ${x.time ? `<span class="db-pending-time">${x.time}</span>` : ''}
+          </div>
+        `;
+      });
+      pendingHTML += `</div>`;
+    }
+  });
+
+  const overallPct = total ? Math.round((done / total) * 100) : 0;
+  document.getElementById('dbTotal').textContent = total;
+  document.getElementById('dbDone').textContent = done;
+  document.getElementById('dbPct').textContent = overallPct + '%';
+
+  document.getElementById('dbChart').innerHTML = chartHTML;
+  document.getElementById('dbBasesList').innerHTML = basesHTML;
+  document.getElementById('dbPendingTasks').innerHTML = pendingHTML || `
+    <div class="empty-state" style="border: none; padding: 20px;">
+      🎉 Excelente! Todas as tarefas da semana foram concluídas!
+    </div>
+  `;
+}
+
+// ── Mini Calendário Logic ────────────────────────────────────────────────────
+function renderCalendar() {
+  const grid = document.getElementById('calGrid');
+  const title = document.getElementById('calMonthTitle');
+  if (!grid || !title) return;
+
+  grid.innerHTML = '';
+
+  const year = currentCalendarMonth.getFullYear();
+  const month = currentCalendarMonth.getMonth();
+
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+  title.textContent = `${monthNames[month]} ${year}`;
+
+  const weekdays = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  weekdays.forEach(w => {
+    const el = document.createElement('div');
+    el.className = 'cal-weekday';
+    el.textContent = w;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(year, month, 1);
+  const startDayIndex = firstDay.getDay(); 
+  
+  const prevMonthLast = new Date(year, month, 0);
+  const prevMonthDays = prevMonthLast.getDate();
+
+  const currentMonthLast = new Date(year, month + 1, 0);
+  const totalDays = currentMonthLast.getDate();
+
+  const cells = [];
+
+  for (let i = startDayIndex - 1; i >= 0; i--) {
+    const d = new Date(year, month - 1, prevMonthDays - i);
+    cells.push({ date: d, isCurrentMonth: false });
+  }
+
+  for (let i = 1; i <= totalDays; i++) {
+    const d = new Date(year, month, i);
+    cells.push({ date: d, isCurrentMonth: true });
+  }
+
+  const remaining = 42 - cells.length;
+  for (let i = 1; i <= remaining; i++) {
+    const d = new Date(year, month + 1, i);
+    cells.push({ date: d, isCurrentMonth: false });
+  }
+
+  const todayStr = formatDateISO(new Date());
+
+  cells.forEach(cell => {
+    const dateStr = formatDateISO(cell.date);
+    const cellEl = document.createElement('div');
+    cellEl.className = 'cal-cell';
+    cellEl.textContent = cell.date.getDate();
+
+    if (cell.isCurrentMonth) {
+      cellEl.classList.add('current-month');
+    }
+    if (dateStr === todayStr) {
+      cellEl.classList.add('today');
+    }
+    if (dateStr === activeDay) {
+      cellEl.classList.add('active');
+    }
+    if (tasks[dateStr] && tasks[dateStr].length > 0) {
+      cellEl.classList.add('has-tasks');
+    }
+
+    cellEl.onclick = () => {
+      currentWeekStart = getMonday(cell.date);
+      activeDay = dateStr;
+      currentCalendarMonth = new Date(cell.date);
+      
+      updateDaysOfWeek();
+      renderCalendar();
+      setActiveDay(dateStr);
+    };
+
+    grid.appendChild(cellEl);
+  });
+}
+
+function navigateMonth(direction) {
+  currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + direction);
+  renderCalendar();
+}
+
+function navigateWeek(direction) {
+  currentWeekStart.setDate(currentWeekStart.getDate() + direction * 7);
+  updateDaysOfWeek();
+  
+  // Mantém a seleção do mesmo dia da semana na nova semana
+  const prevActiveDate = new Date(activeDay + 'T00:00:00');
+  const dayOffset = isNaN(prevActiveDate.getTime()) ? 0 : (prevActiveDate.getDay() + 6) % 7; 
+  
+  const newActiveDate = new Date(currentWeekStart);
+  newActiveDate.setDate(currentWeekStart.getDate() + dayOffset);
+  const newActiveDayStr = formatDateISO(newActiveDate);
+  
+  activeDay = newActiveDayStr;
+  currentCalendarMonth = new Date(newActiveDate);
+  
+  renderCalendar();
+  setActiveDay(newActiveDayStr);
+}
+
+// ── CRUD Operações ────────────────────────────────────────────────────────────
+async function addTask() {
+  if (!currentUser) return;
+  const input = document.getElementById('taskInput');
+  const timeI = document.getElementById('taskTime');
+  const text  = input.value.trim();
+  if (!text) { input.focus(); return; }
+
+  const { data, error } = await _supabase
+    .from('tasks')
+    .insert({
+      user_id: currentUser.id,
+      day_id: activeDay,
+      text,
+      time: timeI.value || '',
+      done: false,
+      details: ''
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao adicionar tarefa:', error);
+    alert('Erro ao adicionar tarefa: ' + error.message);
+    return;
+  }
+
+  if (!tasks[activeDay]) tasks[activeDay] = [];
+  tasks[activeDay].push({
+    id: data.id,
+    text: data.text,
+    time: data.time || '',
+    done: data.done,
+    details: data.details || ''
+  });
+
+  input.value = '';
+  timeI.value = '';
+  
+  renderCalendar();
+  renderTasks();
+  renderSidebar();
+}
+
+async function toggleTask(id) {
+  let targetTask = null;
+  let targetDayId = null;
+  for (const dateKey in tasks) {
+    const t = tasks[dateKey].find(x => x.id === id);
+    if (t) {
+      targetTask = t;
+      targetDayId = dateKey;
+      break;
+    }
+  }
+  if (!targetTask) return;
+
+  const newDone = !targetTask.done;
+  const { error } = await _supabase
+    .from('tasks')
+    .update({ done: newDone })
+    .eq('id', id);
+
+  if (error) { console.error('Erro ao atualizar tarefa:', error); return; }
+
+  targetTask.done = newDone;
+
+  if (activeDay === 'dashboard') {
+    renderDashboard();
+    renderSidebar();
+  } else {
+    renderTasks();
+    renderSidebar();
+  }
+}
+
+async function deleteTask(id) {
+  const { error } = await _supabase
+    .from('tasks')
+    .delete()
+    .eq('id', id);
+
+  if (error) { console.error('Erro ao deletar tarefa:', error); return; }
+
+  for (const dateKey in tasks) {
+    if (tasks[dateKey]) {
+      tasks[dateKey] = tasks[dateKey].filter(x => x.id !== id);
+    }
+  }
+
+  renderCalendar();
+  if (activeDay === 'dashboard') {
+    renderDashboard();
+    renderSidebar();
+  } else {
+    renderTasks();
+    renderSidebar();
+  }
+}
+
+function renderTasks() {
+  const list  = tasks[activeDay] || [];
+  const el    = document.getElementById('taskList');
+  const empty = document.getElementById('emptyState');
+  const done  = list.filter(t => t.done).length;
+  const pct   = list.length ? Math.round(done / list.length * 100) : 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressPct').textContent  = pct + '%';
+  empty.style.display = list.length ? 'none' : 'block';
+  el.innerHTML = '';
+  list.forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'task-item' + (t.done ? ' done' : '');
+    
+    if (t.done) {
+      item.style.cursor = 'pointer';
+      item.title = 'Clique para ver detalhes do chamado';
+      item.onclick = () => openTaskDetails(t.id);
+    }
+
+    item.innerHTML = `
+      <div class="task-check ${t.done ? 'checked' : ''}" onclick="event.stopPropagation(); toggleTask(${t.id})">
+        ${t.done ? '✓' : ''}
+      </div>
+      <div class="task-text" style="${t.done ? 'text-decoration:line-through' : ''}">
+        ${t.text} ${t.done ? '<span style="font-size:10px; color:var(--ai); margin-left:6px; font-style:normal; font-weight:600; opacity:0.85;">📝 Ver Detalhes</span>' : ''}
+      </div>
+      ${t.time ? `<div class="task-time">${t.time}</div>` : ''}
+      <button class="task-delete" onclick="event.stopPropagation(); deleteTask(${t.id})">✕</button>
+    `;
+    el.appendChild(item);
+  });
+}
+
+function saveTasks() { /* no-op: salvo via Supabase */ }
+
+async function resetToDefaultTasks() {
+  if (!currentUser) return;
+  if (!confirm("Deseja gerar 25 tarefas de teste? Elas serão salvas na sua conta no Supabase na semana atual.")) return;
+
+  const rows = [
+    { day_id: DAYS[0].id, text:"Alinhamento matinal com gerente da Zona Sul", time:"08:30", done:true },
+    { day_id: DAYS[0].id, text:"Visitar filial de Santo Amaro e auditar estoque físico", time:"10:00", done:true },
+    { day_id: DAYS[0].id, text:"Almoço com coordenador de operações locais", time:"12:30", done:true },
+    { day_id: DAYS[0].id, text:"Vistoria técnica na nova instalação em Interlagos", time:"14:30", done:false },
+    { day_id: DAYS[0].id, text:"Preencher e enviar relatório de visitas da Zona Sul", time:"17:00", done:false },
+    { day_id: DAYS[1].id, text:"Check-in presencial na base Limão", time:"09:00", done:true },
+    { day_id: DAYS[1].id, text:"Reunião de alinhamento de rotas com logística", time:"10:30", done:true },
+    { day_id: DAYS[1].id, text:"Auditoria preventiva nos sistemas de segurança predial", time:"13:30", done:false },
+    { day_id: DAYS[1].id, text:"Entrevistar novo candidato para vaga de supervisor regional", time:"15:00", done:false },
+    { day_id: DAYS[1].id, text:"Consolidar pendências administrativas da base Limão", time:"17:30", done:false },
+    { day_id: DAYS[2].id, text:"Monitoramento semanal das metas globais do time", time:"08:00", done:true },
+    { day_id: DAYS[2].id, text:"Videoconferência mensal de alinhamento com todas as bases", time:"10:00", done:true },
+    { day_id: DAYS[2].id, text:"Revisão e atualização da planilha financeira", time:"11:30", done:true },
+    { day_id: DAYS[2].id, text:"Aprovar orçamentos pendentes de insumos corporativos", time:"14:00", done:false },
+    { day_id: DAYS[2].id, text:"Verificar e responder chamados urgentes do Service Desk", time:"16:00", done:false },
+    { day_id: DAYS[3].id, text:"Reunião de abertura e auditoria na base Canindé", time:"09:15", done:true },
+    { day_id: DAYS[3].id, text:"Acompanhar workshop presencial de segurança operacional", time:"11:00", done:false },
+    { day_id: DAYS[3].id, text:"Negociação de reajustes de contrato com fornecedores", time:"14:00", done:false },
+    { day_id: DAYS[3].id, text:"Visita externa de relacionamento com parceiro estratégico", time:"15:30", done:false },
+    { day_id: DAYS[3].id, text:"Definir cronograma das manutenções prediais pendentes", time:"17:00", done:false },
+    { day_id: DAYS[4].id, text:"Inspeção geral e testes do plano de evacuação em Barueri", time:"08:30", done:true },
+    { day_id: DAYS[4].id, text:"Reunião final de status semanal com diretoria de operações", time:"10:30", done:true },
+    { day_id: DAYS[4].id, text:"Estruturação dos planos de ação emergenciais", time:"13:30", done:false },
+    { day_id: DAYS[4].id, text:"Redigir e arquivar relatórios semanais consolidados", time:"15:00", done:false },
+    { day_id: DAYS[4].id, text:"Café com a equipe e encerramento da jornada da semana", time:"17:00", done:false },
+  ].map(t => ({ ...t, user_id: currentUser.id, details: '' }));
+
+  const { error } = await _supabase.from('tasks').insert(rows);
+  if (error) { alert('Erro: ' + error.message); return; }
+
+  await loadTasksFromSupabase(currentUser.id);
+  renderCalendar();
+  setActiveDay(activeDay);
+  addAIMessage('assistant', '⚡ As 25 tarefas fictícias foram geradas com sucesso no Supabase na semana atual!');
+}
+
+// ── Funções de Detalhes dos Chamados (Modal e IA) ─────────────────────────────
+let currentDetailTaskId = null;
+
+function openTaskDetails(id) {
+  currentDetailTaskId = id;
+  
+  let targetTask = null;
+  let targetDayId = null;
+  for (const dateKey in tasks) {
+    const found = tasks[dateKey].find(x => x.id === id);
+    if (found) {
+      targetTask = found;
+      targetDayId = dateKey;
+      break;
+    }
+  }
+
+  if (!targetTask) return;
+
+  document.getElementById('detailTaskText').textContent = targetTask.text;
+  
+  const statusEl = document.getElementById('detailTaskStatus');
+  statusEl.textContent = targetTask.done ? 'CONCLUÍDO' : 'PENDENTE';
+  statusEl.style.color = targetTask.done ? 'var(--green)' : 'var(--yellow)';
+  statusEl.style.background = targetTask.done ? 'rgba(105, 219, 124, 0.1)' : 'rgba(255, 212, 59, 0.1)';
+  statusEl.style.borderColor = targetTask.done ? 'rgba(105, 219, 124, 0.3)' : 'rgba(255, 212, 59, 0.3)';
+
+  const d = DAYS.find(x => x.id === targetDayId);
+  const dayName = d ? d.name : formatWeekdayLong(targetDayId);
+  const dayDest = d ? d.dest : (customDestinations[targetDayId] || 'Sem escala');
+
+  document.getElementById('detailTaskTime').textContent = 
+    `Rota: ${dayName} (${dayDest}) ${targetTask.time ? '· Horário: ' + targetTask.time : ''}`;
+  
+  document.getElementById('detailTaskNotes').value = targetTask.details || '';
+  
+  document.getElementById('taskDetailsModal').style.display = 'flex';
+}
+
+function closeTaskDetailsModal() {
+  document.getElementById('taskDetailsModal').style.display = 'none';
+  currentDetailTaskId = null;
+}
+
+async function saveTaskDetails() {
+  if (!currentDetailTaskId) return;
+  const notesVal = document.getElementById('detailTaskNotes').value.trim();
+
+  const { error } = await _supabase
+    .from('tasks')
+    .update({ details: notesVal })
+    .eq('id', currentDetailTaskId);
+
+  if (error) {
+    console.error('Erro ao salvar detalhes:', error);
+    alert('Erro ao salvar: ' + error.message);
+    return;
+  }
+
+  for (const dateKey in tasks) {
+    if (tasks[dateKey]) {
+      tasks[dateKey] = tasks[dateKey].map(t => {
+        if (t.id === currentDetailTaskId) {
+          return { ...t, details: notesVal };
+        }
+        return t;
+      });
+    }
+  }
+
+  closeTaskDetailsModal();
+  renderTasks();
+
+  if (activeDay === 'dashboard') {
+    renderDashboard();
+  } else if (activeDay === 'search') {
+    const query = document.getElementById('searchInput').value;
+    performSearch(query);
+  }
+}
+
+async function generateTaskDetailsWithIA() {
+  if (!currentDetailTaskId) return;
+
+  let targetTask = null;
+  let targetDayId = null;
+  for (const dateKey in tasks) {
+    const found = tasks[dateKey].find(x => x.id === currentDetailTaskId);
+    if (found) {
+      targetTask = found;
+      targetDayId = dateKey;
+      break;
+    }
+  }
+
+  if (!targetTask) return;
+
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
+  let serverHasKey = false;
+  
+  if (!localKey) {
+    try {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    } catch (e) {
+      console.warn('Erro ao checar status do servidor:', e);
+    }
+  }
+
+  if (!serverHasKey && !localKey) {
+    alert('Por favor, configure sua chave do Google (Gemini) clicando em ⚙ API no topo da página.');
+    showModal();
+    return;
+  }
+
+  const btnIA = document.getElementById('btnGenerateIA');
+  const textarea = document.getElementById('detailTaskNotes');
+  
+  btnIA.disabled = true;
+  btnIA.textContent = '✦ Escrevendo detalhes com IA...';
+  
+  const systemPrompt = `Você é um analista de operações corporativas encarregado de documentar chamados técnicos e atividades finalizadas.
+Escreva um detalhamento técnico conciso, profissional e formal (1 ou 2 parágrafos curtos) simulando o que foi feito na atividade.
+Responda diretamente com a descrição das tarefas realizadas, sem preâmbulos, cumprimentos ou explicações adicionais. Responda em português brasileiro.`;
+
+  const d = DAYS.find(x => x.id === targetDayId);
+  const dayName = d ? d.name : formatWeekdayLong(targetDayId);
+  const dayDest = d ? d.dest : (customDestinations[targetDayId] || 'Sem escala');
+
+  const userMessage = `Por favor, elabore um detalhamento profissional para a seguinte atividade finalizada no meu roteiro:
+Atividade: "${targetTask.text}"
+Data/Base operacional visitada: "${dayName} (${dayDest})"
+${targetTask.time ? 'Horário programado: ' + targetTask.time : ''}`;
+
+  try {
+    const data = await callGeminiWithProxyFallback(systemPrompt, userMessage, localKey, false);
+    const reply = data.text || '';
+    textarea.value = reply;
+  } catch (e) {
+    console.error('Erro ao gerar detalhes com IA:', e);
+    alert('Erro ao contatar IA: ' + e.message);
+  } finally {
+    btnIA.disabled = false;
+    btnIA.innerHTML = '✦ Gerar Detalhamento Técnico com IA';
+  }
+}
+
+// ── AI Panel ──────────────────────────────────────────────────────────────────
+function buildContext() {
+  let ctx = 'Contexto do roteiro semanal selecionado:\n';
+  const endWeekDate = addDays(currentWeekStart, 6);
+  ctx += `Período: de ${formatDateBR(currentWeekStart)} a ${formatDateBR(endWeekDate)}\n\n`;
+
+  DAYS.forEach(d => {
+    const t = tasks[d.id] || [];
+    ctx += `${d.name} (${d.dateLabel}) → ${d.dest} (${d.tipo})\n`;
+    if (t.length) {
+      t.forEach(x => ctx += `  ${x.done ? '[✓]' : '[ ]'} ${x.text}${x.time ? ' às '+x.time : ''}\n`);
+    } else {
+      ctx += '  Sem tarefas registradas.\n';
+    }
+    ctx += '\n';
+  });
+  return ctx;
+}
+
+async function sendMessage() {
+  const input = document.getElementById('aiInput');
+  const msg   = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addAIMessage('user', msg);
+  await callAI(msg);
+}
+
+// ── Reconhecimento de Voz (Microfone da IA) ───────────────────────────────────
+let recognition = null;
+let isListening = false;
+
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    console.warn('Speech Recognition API not supported in this browser.');
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    const micBtn = document.getElementById('aiMicBtn');
+    if (micBtn) {
+      micBtn.classList.add('listening');
+      micBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg>`;
+    }
+    const input = document.getElementById('aiInput');
+    if (input) {
+      input.placeholder = 'Ouvindo... Fale agora.';
+    }
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    const micBtn = document.getElementById('aiMicBtn');
+    if (micBtn) {
+      micBtn.classList.remove('listening');
+      micBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>`;
+    }
+    const input = document.getElementById('aiInput');
+    if (input) {
+      input.placeholder = 'Pergunte algo sobre sua semana...';
+    }
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    const input = document.getElementById('aiInput');
+    if (input) {
+      input.value = (input.value + ' ' + transcript).trim();
+      input.focus();
+    }
+  };
+
+  recognition.onerror = (event) => {
+    console.error('Erro no reconhecimento de voz:', event.error);
+    if (event.error === 'not-allowed') {
+      alert('Permissão de microfone negada. Certifique-se de autorizar o uso do microfone nas configurações do seu celular.');
+    }
+  };
+}
+
+function toggleSpeechRecognition() {
+  if (!recognition) {
+    initSpeechRecognition();
+  }
+
+  if (!recognition) {
+    alert('Desculpe, o reconhecimento de voz não é suportado pelo seu celular/navegador.');
+    return;
+  }
+
+  if (isListening) {
+    recognition.stop();
+  } else {
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error('Falha ao iniciar gravação:', e);
+    }
+  }
+}
+
+async function quickPrompt(type) {
+  const d    = DAYS.find(x => x.id === activeDay);
+  const t    = d ? (tasks[activeDay] || []) : [];
+  const done = t.filter(x => x.done).length;
+  
+  let prompt = '';
+  
+  if (type === 'resumir') {
+    if (activeDay === 'dashboard') {
+      prompt = `Resuma minha produtividade da semana. Diga quantas tarefas concluí e faça um resumo motivador de todas as bases.`;
+    } else {
+      prompt = `Resuma meu dia de ${d.name} (${d.dest}). Tenho ${t.length} tarefa(s), ${done} concluída(s). Seja direto e motivador.`;
+    }
+  } else if (type === 'proximos') {
+    prompt = `Com base no meu roteiro semanal, quais são os próximos passos mais importantes? Priorize e seja objetivo.`;
+  } else if (type === 'analise') {
+    prompt = `Analise minha produtividade desta semana com base nas tarefas registradas. Dê um panorama geral e identifique pontos de atenção.`;
+  } else if (type === 'relatorio') {
+    prompt = `Gere um relatório executivo curto da semana para eu enviar ao meu gestor. Use formato profissional e objetivo.`;
+  } else if (type === 'pdf_dia') {
+    const targetDayName = d ? `${d.name} (${d.dateLabel})` : formatDateBR(new Date());
+    prompt = `Gere um relatório diário em PDF para o dia de hoje (${targetDayName}).`;
+  } else if (type === 'pdf_semana') {
+    prompt = `Gere um relatório semanal em PDF com o resumo das atividades da semana atual.`;
+  } else if (type === 'pdf_mes') {
+    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const dateObj = (activeDay && activeDay !== 'dashboard') ? new Date(activeDay + 'T00:00:00') : new Date();
+    const monthName = monthNames[dateObj.getMonth()];
+    prompt = `Gere um relatório mensal em PDF com o resumo das atividades do mês de ${monthName} de ${dateObj.getFullYear()}.`;
+  }
+
+  addAIMessage('user', prompt);
+  await callAI(prompt);
+}
+
+function addAIMessage(role, text, isTyping = false, isReport = false, fileConfig = null, skipSave = false) {
+  const msgs = document.getElementById('aiMessages');
+  const div  = document.createElement('div');
+  div.className = `ai-msg ${role}`;
+  if (isTyping) {
+    div.id = 'aiTyping';
+    div.innerHTML = `<div class="ai-msg-label">IA</div><div class="ai-typing"><span></span><span></span><span></span></div>`;
+  } else {
+    const label = role === 'assistant' ? 'IA' : role === 'error' ? 'ERRO' : 'VOCÊ';
+    div.innerHTML = `<div class="ai-msg-label">${label}</div>${text.replace(/\n/g,'<br>')}`;
+
+    if (isReport || fileConfig) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-modal primary';
+      btn.style.marginTop = '12px';
+      btn.style.width = '100%';
+      btn.style.display = 'flex';
+      btn.style.alignItems = 'center';
+      btn.style.justifyContent = 'center';
+      btn.style.gap = '8px';
+      btn.style.fontSize = '11px';
+      btn.style.padding = '8px 12px';
+      
+      btn.innerHTML = '📥 Gerar Relatório em PDF';
+      
+      const isCustom = !!fileConfig;
+      const pType = fileConfig ? fileConfig.type : null;
+      const pDate = fileConfig ? fileConfig.date : null;
+      const pTitle = fileConfig ? fileConfig.title : null;
+      const pText = text;
+
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        try {
+          if (typeof showPDFOptions === 'function') {
+            if (isCustom) {
+              showPDFOptions(pType, pDate, pTitle, pText, 'custom');
+            } else {
+              showPDFOptions(null, null, null, pText, 'standard');
+            }
+          } else {
+            throw new Error('showPDFOptions undefined');
+          }
+        } catch (err) {
+          console.error('Erro ao exibir modal de PDF, caindo para fallback', err);
+          if (isCustom) {
+            downloadCustomPeriodPDF(pType, pDate, pTitle, pText);
+          } else {
+            downloadReportPDF(pText);
+          }
+        }
+      });
+      div.appendChild(btn);
+    }
+  }
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  // Persiste a mensagem no histórico do chat do usuário
+  if (!isTyping && !skipSave && currentUser) {
+    const storedRole = role === 'assistant' ? 'model' : role;
+    chatHistory.push({ role: storedRole, parts: [{ text }], isReport, fileConfig });
+    localStorage.setItem(`chat_history_${currentUser.id}`, JSON.stringify(chatHistory));
+    updateChatHistoryCounter();
+  }
+
+  return div;
+}
+
+function updateChatHistoryCounter() {
+  const counter = document.getElementById('aiHistoryCount');
+  if (!counter) return;
+  const count = chatHistory.filter(m => m.role === 'user' || m.role === 'model').length;
+  counter.textContent = `${count} / 20 mensagens`;
+}
+
+// ── Geração do PDF Corporativo Elegante com Dashboard Integrado ──────────────────
+// Diálogo de opções para PDF
+function showPDFOptions(type, date, title, aiText, reportType) {
+  const backdrop = document.createElement('div');
+  backdrop.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease-out;
+  `;
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background: #161616;
+    border: 1px solid #1f1f1f;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s ease-out;
+  `;
+
+  dialog.innerHTML = `
+    <h3 style="color: #e8e8e8; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
+      📄 Opções de Relatório
+    </h3>
+    <p style="color: #666666; font-size: 13px; margin: 0 0 20px 0; line-height: 1.4;">
+      Escolha como deseja compartilhar seu relatório
+    </p>
+    <div style="display: flex; gap: 12px; flex-direction: column;">
+      <button id="btnDownloadPDF" style="
+        background: #7c3aed;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
+        ⬇️ Baixar PDF
+      </button>
+      <button id="btnShareWhatsApp" style="
+        background: #25d366;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#1fa857'" onmouseout="this.style.background='#25d366'">
+        💬 Compartilhar no WhatsApp
+      </button>
+      <button id="btnCancel" style="
+        background: #333333;
+        color: #e8e8e8;
+        border: 1px solid #1f1f1f;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#444444'" onmouseout="this.style.background='#333333'">
+        ✕ Cancelar
+      </button>
+    </div>
+  `;
+
+  backdrop.appendChild(dialog);
+  document.body.appendChild(backdrop);
+
+  const btnDownload = dialog.querySelector('#btnDownloadPDF');
+  const btnShare = dialog.querySelector('#btnShareWhatsApp');
+  const btnCancel = dialog.querySelector('#btnCancel');
+
+  const close = () => {
+    backdrop.style.animation = 'fadeOut 0.2s ease-out forwards';
+    setTimeout(() => backdrop.remove(), 200);
+  };
+
+  btnDownload.addEventListener('click', () => {
+    close();
+    if (reportType === 'custom') {
+      downloadCustomPeriodPDF(type, date, title, aiText);
+    } else {
+      downloadReportPDF(aiText);
+    }
+  });
+
+  btnShare.addEventListener('click', () => {
+    close();
+    if (reportType === 'custom') {
+      shareReportViaWhatsApp(type, date, title, aiText, 'custom');
+    } else {
+      shareReportViaWhatsApp(null, null, null, aiText, 'standard');
+    }
+  });
+
+  btnCancel.addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+
+  // Add animations
+  const style = document.createElement('style');
+  if (!document.getElementById('pdf-animations')) {
+    style.id = 'pdf-animations';
+    style.textContent = `
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+      @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// Compartilhar via WhatsApp com arquivo PDF real
+async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
+  try {
+    // Gera o PDF primeiro
+    let element, opt, fileName;
+    
+    if (reportType === 'custom') {
+      element = createCustomPDFElement(type, date, title, aiText);
+      const now = new Date();
+      fileName = `relatorio_${title}_${now.toISOString().slice(0, 10)}.pdf`;
+      opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.99 },
+        html2canvas: { scale: 3, useCORS: true, backgroundColor: '#000000' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+    } else {
+      element = createStandardPDFElement(aiText);
+      const now = new Date();
+      fileName = `relatorio_tarefas_ia_${now.toISOString().slice(0, 10)}.pdf`;
+      opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.99 },
+        html2canvas: { scale: 3, useCORS: true, backgroundColor: '#000000' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+    }
+
+    // document.body.appendChild(element); removed for safe HTML rendering
+
+    console.log('🔵 Gerando PDF para compartilhamento...');
+    const dataUri = await html2pdf().set(opt).from(element).outputPdf('datauristring');
+
+    if (!dataUri || dataUri.length < 100) {
+      throw new Error('PDF vazio.');
+    }
 
     updateStatus('Salvando...');
 
@@ -4882,7 +6584,24 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
 
 // ── Exportação Rápida com IA via Dashboard ──────────────────────────────────────
 async function exportDashboardPDF() {
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
+  let serverHasKey = false;
   
+  if (!localKey) {
+    try {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    } catch (e) {
+      console.warn('Erro ao checar status do servidor:', e);
+    }
+  }
+
+  if (!serverHasKey && !localKey) {
+    alert('Por favor, configure sua chave do Google (Gemini) clicando em ⚙ API no topo da página antes de exportar.');
+    showModal();
+    return;
+  }
 
   const loadingModal = document.getElementById('loadingModal');
   loadingModal.style.display = 'flex';
@@ -4895,7 +6614,7 @@ Responda em português brasileiro de forma profissional e direta.`;
 
   try {
     const promptMessage = context + '\n\nPor favor, faça a análise operacional do meu roteiro semanal.';
-    const data = await callGeminiWithProxyFallback(systemPrompt, promptMessage, null, false);
+    const data = await callGeminiWithProxyFallback(systemPrompt, promptMessage, localKey, false);
     const reply = data.text || 'Resumo operacional concluído com base nos dados do sistema.';
     downloadReportPDF(reply);
   } catch (e) {
@@ -5054,7 +6773,21 @@ function buildMonthlyMetrics(weekGroups) {
 }
 
 async function buildMonthlyAISummary(monthName, year, metrics, weekGroups) {
-  
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
+  let serverHasKey = false;
+  try {
+    if (!localKey) {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    }
+  } catch (e) {
+    console.warn('Erro ao checar status do servidor para IA mensal:', e);
+  }
+
+  const fallback = `O mês de ${monthName} apresentou ${metrics.totalTasks} tarefas, com ${metrics.totalDone} concluídas e ${metrics.totalPending} pendentes, resultando em uma taxa de conclusão de ${metrics.completion}%. O fluxo de trabalho foi agrupado em ${metrics.weeks} semanas e as principais entregas foram priorizadas para manter consistência nas rotas e atendimento operacional.`;
+
+  if (!serverHasKey && !localKey) return fallback;
 
   const systemPrompt = `Você é um analista executivo de operações de campo que escreve relatórios mensais de produtividade.`;
   const prompt = `Baseado nos dados abaixo, gere um resumo executivo de performance e recomendações operacionais para o mês de ${monthName} de ${year}. Use português brasileiro e mantenha o texto em 2 parágrafos profissionais.
@@ -5068,7 +6801,7 @@ async function buildMonthlyAISummary(monthName, year, metrics, weekGroups) {
 Inclua um comentário sobre a produtividade semanal e um ponto de atenção para o próximo mês.`;
 
   try {
-    const data = await callGeminiWithProxyFallback(systemPrompt, prompt, null, false);
+    const data = await callGeminiWithProxyFallback(systemPrompt, prompt, localKey, false);
     return data.text || fallback;
   } catch (e) {
     console.warn('IA mensal falhou, usando resumo fallback:', e);
@@ -5212,7 +6945,24 @@ function generateMonthlyBarChartSVG(weekGroups) {
 }
 
 async function callAI(userMsg) {
+  const localKey = (localStorage.getItem('google_api_key') || 'AQ.Ab8RN6KFYRCcPh6P24oJZvE6H5YY2KEktbS3rJn8hKV_Wtp6Jw');
+  let serverHasKey = false;
   
+  if (!localKey) {
+    try {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    } catch (e) {
+      console.warn('Erro ao checar status do servidor:', e);
+    }
+  }
+
+  if (!serverHasKey && !localKey) {
+    addAIMessage('error', 'Configure sua chave do Google (Gemini) clicando em <strong>⚙ API</strong> no topo da página.');
+    showModal();
+    return;
+  }
 
   const btn = document.getElementById('aiSendBtn');
   btn.disabled = true;
@@ -5291,7 +7041,7 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
       typingEl.id = '';
       typingEl.className = 'ai-msg assistant';
 
-      data = await callGeminiWithProxyFallback(systemPrompt, contents, null, true, (text) => {
+      data = await callGeminiWithProxyFallback(systemPrompt, contents, localKey, true, (text) => {
         let uiText = text;
         uiText = uiText.replace(/\[(?:TASK_CREATE|FILE_GENERATE):\s*({[\s\S]*?})\s*\]/g, '').trim();
         const openBracketMatch = uiText.match(/\[.*?\]?\s*$/);
@@ -6055,3 +7805,5 @@ if (typeof renderTasks === 'function') {
 
 </body>
 </html>
+
+      <!-- Notifications Panel -->
