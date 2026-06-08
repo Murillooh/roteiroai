@@ -5895,8 +5895,9 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
     function drawFooter(pg, total) {
       dc(200, 200, 200); LN(MX, H - 11, W - MX, H - 11);
       sf(6.5); tc(160, 160, 160);
-      TX('TarefasIA  •  Inteligencia e Controle Operacional', MX, H - 6);
-      TX(`Pagina ${pg} de ${total}`, W - MX, H - 6, { align: 'right' });
+      TX('TarefasIA  \u2022  Relatorio de Atividades', MX, H - 6);
+      sf(6.5, 'bold'); tc(120, 120, 120);
+      TX(`${pg} / ${total}`, W - MX, H - 6, { align: 'right' });
     }
 
     function drawStats(y0) {
