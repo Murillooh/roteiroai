@@ -3097,7 +3097,7 @@
         🆕 Nova conversa
       </button>
       <div id="aiHistoryCount" style="font-size:11px; color:var(--sub); opacity:0.8; white-space:nowrap; flex-shrink:0;">0 / 20 mensagens</div>
-      <div class="ai-model-badge" style="margin-left: auto;">gemini-2.0-flash</div>
+      <div class="ai-model-badge" style="margin-left: auto;">gemini-2.5-flash</div>
     </div>
 
     <div class="ai-messages" id="aiMessages"></div>
@@ -3280,7 +3280,7 @@ const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
 async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey, onChunk) {
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
   const payload = {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
