@@ -3273,9 +3273,7 @@ const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname
   window.location.href.includes('localhost') ||
   window.location.protocol === 'capacitor:' ||
   window.location.protocol === 'ionic:';
-const BASE_URL = isCapacitorApp
-  ? (isLocalHost ? LOCAL_API_URL : PRODUCTION_API_URL)
-  : '';
+const BASE_URL = isCapacitorApp ? PRODUCTION_API_URL : '';
 const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
