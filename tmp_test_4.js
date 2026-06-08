@@ -1,4 +1,11 @@
 
+// Global Error Handler to prevent preloader hang
+window.onerror = function(msg, url, line) {
+  console.error("Global JS Error: " + msg + " at " + url + ":" + line);
+  const preloader = document.getElementById('preloader');
+  if (preloader) preloader.classList.add('fade-out');
+};
+
 // Apply saved configurations and theme on page load
 (function() {
   const savedColor = localStorage.getItem('roteiroai_theme_color');
@@ -38,47 +45,67 @@
 const SUPABASE_URL = 'https://aozyeuhfqqnsrfkbrsre.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Pad-SAGpdApE85PEIU0ucw_BIfTK_7X';
 
-let _supabase;
+const MOCK_SUPABASE = {
+  auth: {
+    getSession: async () => ({ data: { session: null } }),
+    onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    signOut: async () => {},
+    signInWithOAuth: async () => ({ error: new Error('Supabase não carregado') }),
+    signInWithIdToken: async () => ({ error: new Error('Supabase não carregado') })
+  },
+  from: () => ({
+    select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [] }), single: () => Promise.resolve({ data: null }) }) }),
+    insert: () => Promise.resolve({ data: null, error: null }),
+    update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+    delete: () => ({ eq: () => ({ eq: () => Promise.resolve({ error: null }) }) }),
+    upsert: () => Promise.resolve({ error: null })
+  })
+};
+
+let _supabase = MOCK_SUPABASE;
 try {
-  if (typeof supabase !== 'undefined') {
+  if (typeof supabase !== 'undefined' && supabase.createClient) {
     _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } else {
     console.warn('Supabase SDK not loaded. Using fallback mock.');
-    _supabase = {
-      auth: {
-        getSession: async () => ({ data: { session: null } }),
-        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-        signOut: async () => {}
-      },
-      from: () => ({
-        select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [] }) }) }),
-        insert: () => Promise.resolve({ data: null }),
-        update: () => Promise.resolve({ data: null }),
-        delete: () => Promise.resolve({ data: null }),
-        upsert: () => Promise.resolve({ data: null })
-      })
-    };
   }
 } catch (e) {
   console.error('Error initializing Supabase:', e);
+  _supabase = MOCK_SUPABASE;
+}
+
+// ── Fetch with Timeout Helper ────────────────────────────────────────────────
+async function fetchWithTimeout(resource, options = {}) {
+  const { timeout = 5000 } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(resource, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
 }
 
 // ── Config ───────────────────────────────────────────────────────────────────
-const PRODUCTION_API_URL = 'https://roteiroai-beta.vercel.app'; // Sua URL de produção na Vercel
+const PRODUCTION_API_URL = 'https://tarefasia.vercel.app'; // Sua URL de produção na Vercel
 const LOCAL_API_URL = 'http://192.168.1.106:3000'; // IP local do seu computador para testes no Wi-Fi
 const isCapacitorApp = !!(window.Capacitor && window.Capacitor.isNative);
 const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname) ||
   window.location.href.includes('localhost') ||
   window.location.protocol === 'capacitor:' ||
   window.location.protocol === 'ionic:';
-const BASE_URL = isCapacitorApp
-  ? (isLocalHost ? LOCAL_API_URL : PRODUCTION_API_URL)
-  : '';
+const BASE_URL = isCapacitorApp ? PRODUCTION_API_URL : '';
 const API_ENDPOINT = `${BASE_URL}/api/chat`;
 
 // Função auxiliar para chamar a API do Gemini diretamente do cliente caso exista chave local
-async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey, onChunk) {
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
   const payload = {
     system_instruction: {
       parts: [{ text: systemPrompt || '' }]
@@ -86,7 +113,7 @@ async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
     contents: Array.isArray(userMessageOrContents)
       ? userMessageOrContents.map(m => ({
           ...m,
-          role: m.role === 'model' ? 'assistant' : m.role
+          role: m.role === 'assistant' ? 'model' : m.role
         }))
       : [
           { role: 'user', parts: [{ text: userMessageOrContents }] }
@@ -103,8 +130,8 @@ async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
     body:    JSON.stringify(payload),
   });
 
-  const data = await response.json();
   if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
     const apiMessage = data?.error?.message || data?.error?.code || 'Erro desconhecido na API do Gemini.';
     let userMessage = apiMessage;
 
@@ -116,12 +143,44 @@ async function callGeminiDirect(systemPrompt, userMessageOrContents, apiKey) {
       userMessage = '💡 Erro no servidor do Gemini. Tente novamente mais tarde.';
     }
 
-    throw new Error(userMessage);
+    const err = new Error(userMessage);
+    err.status = response.status;
+    throw err;
   }
-  return { text: data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sem resposta.' };
+
+  return handleSSE(response, onChunk);
 }
 
-async function callGeminiProxy(body) {
+async function handleSSE(response, onChunk) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let done = false;
+  let fullText = "";
+
+  while (!done) {
+    const { value, done: readerDone } = await reader.read();
+    done = readerDone;
+    if (value) {
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n');
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6).trim();
+          if (dataStr === '[DONE]') continue;
+          try {
+            const dataObj = JSON.parse(dataStr);
+            const text = dataObj.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            fullText += text;
+            if (onChunk) onChunk(fullText);
+          } catch(e) {}
+        }
+      }
+    }
+  }
+  return { text: fullText };
+}
+
+async function callGeminiProxy(body, onChunk) {
   const sessionRes = await _supabase.auth.getSession();
   const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
   const res = await fetch(API_ENDPOINT, {
@@ -134,8 +193,8 @@ async function callGeminiProxy(body) {
     body: JSON.stringify(body),
   });
 
-  const data = await res.json();
   if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
     const errMsg = data?.error || data?.detail || 'Erro desconhecido da API.';
     const error = new Error(errMsg);
     error.status = res.status;
@@ -143,10 +202,10 @@ async function callGeminiProxy(body) {
     throw error;
   }
 
-  return data;
+  return handleSSE(res, onChunk);
 }
 
-async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, localKey, useContents = false) {
+async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, localKey, useContents = false, onChunk) {
   const body = {
     systemPrompt,
     ...(useContents ? { contents: messageOrContents } : { userMessage: messageOrContents }),
@@ -154,14 +213,14 @@ async function callGeminiWithProxyFallback(systemPrompt, messageOrContents, loca
 
   if (localKey) {
     try {
-      return await callGeminiDirect(systemPrompt, messageOrContents, localKey);
+      return await callGeminiDirect(systemPrompt, messageOrContents, localKey, onChunk);
     } catch (directError) {
       console.warn('Chamada direta do Gemini falhou, tentando proxy:', directError.message);
-      return await callGeminiProxy(body);
+      return await callGeminiProxy(body, onChunk);
     }
   } else {
     try {
-      return await callGeminiProxy(body);
+      return await callGeminiProxy(body, onChunk);
     } catch (proxyError) {
       throw proxyError;
     }
@@ -607,43 +666,26 @@ setInterval(refreshTasksPeriodically, 60000);
 
 // ── Auth State Change (trata retorno do OAuth do Google) ──────────────────────
 _supabase.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session && !_initialized) {
-    _initialized = true;
+  if (event === 'SIGNED_IN' && session) {
     currentUser = session.user;
     document.body.classList.remove('logged-out');
 
-    const preloader = document.getElementById('preloader');
-    const ringFill  = document.getElementById('preloaderRingFill');
-    const barFill   = document.getElementById('preloaderBarFill');
-    const pctEl     = document.getElementById('preloaderPct');
-    const statusEl  = document.getElementById('preloaderStatus');
-
-    preloader.classList.remove('fade-out');
-    const CIRC = 2 * Math.PI * 44;
-    ringFill.style.strokeDasharray  = CIRC;
-    ringFill.style.strokeDashoffset = 0;
-    barFill.style.width = '100%';
-    pctEl.textContent = '100%';
-    statusEl.textContent = 'Sincronizando suas tarefas...';
-
-    try {
-      await Promise.race([
-        Promise.all([
-          loadDestinationsFromSupabase(session.user.id),
-          loadTasksFromSupabase(session.user.id)
-        ]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Database Timeout')), 3000))
-      ]);
-    } catch (err) {
-      console.error('Erro ou timeout ao sincronizar dados:', err);
+    // Se já inicializou, apenas sincroniza em background
+    if (_initialized) {
+      refreshTasksPeriodically();
+      return;
     }
 
-    statusEl.textContent = 'Tudo pronto!';
-    setTimeout(() => {
-      preloader.classList.add('fade-out');
+    // Se o preloader NÃO estiver visível (ex: login via botão após load), inicializa manualmente
+    const preloader = document.getElementById('preloader');
+    if (preloader && preloader.classList.contains('fade-out')) {
+      _initialized = true;
+      await Promise.all([
+        loadDestinationsFromSupabase(session.user.id),
+        loadTasksFromSupabase(session.user.id)
+      ]).catch(e => console.warn('Background sync failed:', e));
       init();
-    }, 800);
-
+    }
   } else if (event === 'SIGNED_OUT') {
     _initialized = false;
     currentUser = null;
@@ -655,7 +697,7 @@ _supabase.auth.onAuthStateChange(async (event, session) => {
 // ── Modal (API Key) ───────────────────────────────────────────────────────────
 function showModal() {
   document.getElementById('apiModal').style.display = 'flex';
-  const existing = localStorage.getItem('google_api_key') || '';
+  const existing = '';
   document.getElementById('apiKeyInput').value = existing ? '•'.repeat(20) : '';
   document.getElementById('apiKeyInput').placeholder = existing ? 'Chave salva (clique para alterar)' : 'AIzaSy...';
   document.getElementById('modalSkipBtn').style.display = existing ? 'block' : 'none';
@@ -697,22 +739,22 @@ async function init() {
   let serverHasKey = false;
   try {
     let headers = {};
-    if (typeof _supabase !== 'undefined') {
+    if (_supabase && _supabase.auth) {
       const sessionRes = await _supabase.auth.getSession();
-      const token = sessionRes.data.session ? sessionRes.data.session.access_token : '';
+      const token = (sessionRes.data && sessionRes.data.session) ? sessionRes.data.session.access_token : '';
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
     }
-    const res = await fetch(`${BASE_URL}/api/status`, { headers });
+    const res = await fetchWithTimeout(`${BASE_URL}/api/status`, { headers, timeout: 4000 });
     const data = await res.json();
     serverHasKey = data.serverHasKey === true;
   } catch (e) {
     console.warn('Não foi possível verificar status do servidor:', e.message);
   }
 
-  const localKey = localStorage.getItem('google_api_key');
-  const isReady  = serverHasKey || !!localKey;
+  const localKey = null;
+  const isReady = serverHasKey;
   setStatus(isReady);
 
   if (serverHasKey) {
@@ -729,8 +771,8 @@ async function init() {
 }
 
 function showWelcomeMessage() {
-  const localKey = localStorage.getItem('google_api_key');
-  const isReady = isAIReady || !!localKey;
+  const localKey = null;
+  const isReady = isAIReady;
   
   if (!isReady) {
     addAIMessage('assistant',
@@ -1093,14 +1135,34 @@ function renderConfigScreen() {
   // Select the active color in picker and add checkmark
   const savedColor = localStorage.getItem('roteiroai_theme_color') || '#a9e34b';
   const buttons = document.querySelectorAll('.color-picker-btn');
+  let foundPredefined = false;
   buttons.forEach(btn => {
     btn.classList.remove('active');
-    btn.textContent = '';
-    if (btn.getAttribute('data-color') === savedColor) {
-      btn.classList.add('active');
-      btn.textContent = '✓';
+    if (!btn.classList.contains('custom-color')) {
+      btn.textContent = '';
+      if (btn.getAttribute('data-color') === savedColor) {
+        btn.classList.add('active');
+        btn.textContent = '✓';
+        foundPredefined = true;
+      }
+    } else {
+      btn.style.background = 'conic-gradient(from 90deg, #ff595e, #ffca3a, #8ac926, #1982c4, #6a4c93, #ff595e)';
+      btn.querySelector('.custom-color-icon').style.display = 'block';
+      btn.querySelector('.custom-color-check').style.display = 'none';
     }
   });
+
+  if (!foundPredefined) {
+    const customBtn = document.querySelector('.color-picker-btn.custom-color');
+    if (customBtn) {
+      customBtn.classList.add('active');
+      customBtn.style.background = savedColor;
+      const input = customBtn.querySelector('input[type="color"]');
+      if (input) input.value = savedColor;
+      customBtn.querySelector('.custom-color-icon').style.display = 'none';
+      customBtn.querySelector('.custom-color-check').style.display = 'block';
+    }
+  }
 
   // Sync Dark/Light theme toggle
   const isLight = document.body.classList.contains('light-theme');
@@ -1149,17 +1211,39 @@ function changeAppThemeColor(color, element) {
   const buttons = document.querySelectorAll('.color-picker-btn');
   buttons.forEach(btn => {
     btn.classList.remove('active');
-    btn.textContent = '';
+    if (!btn.classList.contains('custom-color')) {
+      btn.textContent = '';
+    } else {
+      btn.style.background = 'conic-gradient(from 90deg, #ff595e, #ffca3a, #8ac926, #1982c4, #6a4c93, #ff595e)';
+      btn.querySelector('.custom-color-icon').style.display = 'block';
+      btn.querySelector('.custom-color-check').style.display = 'none';
+    }
   });
   
   if (element) {
     element.classList.add('active');
-    element.textContent = '✓';
+    if (!element.classList.contains('custom-color')) {
+      element.textContent = '✓';
+    } else {
+      element.style.background = color;
+      element.querySelector('.custom-color-icon').style.display = 'none';
+      element.querySelector('.custom-color-check').style.display = 'block';
+    }
   } else {
     const btn = document.querySelector(`.color-picker-btn[data-color="${color}"]`);
     if (btn) {
       btn.classList.add('active');
       btn.textContent = '✓';
+    } else {
+      const customBtn = document.querySelector('.color-picker-btn.custom-color');
+      if (customBtn) {
+        customBtn.classList.add('active');
+        customBtn.style.background = color;
+        const colorInput = customBtn.querySelector('input[type="color"]');
+        if (colorInput) colorInput.value = color;
+        customBtn.querySelector('.custom-color-icon').style.display = 'none';
+        customBtn.querySelector('.custom-color-check').style.display = 'block';
+      }
     }
   }
 
@@ -1337,45 +1421,7 @@ function openIntegrationsSettings() {
   `);
 }
 
-function exportUserData() {
-  if (!currentUser) {
-    alert('Faça login para exportar seus dados.');
-    return;
-  }
-  
-  const exportObj = {
-    exportedAt: new Date().toISOString(),
-    user: {
-      id: currentUser.id,
-      email: currentUser.email,
-      name: (currentUser.user_metadata || {}).full_name || ''
-    },
-    tasks: tasks,
-    customDestinations: customDestinations || {},
-    settings: {
-      themeColor: localStorage.getItem('roteiroai_theme_color') || '#a9e34b',
-      lightTheme: localStorage.getItem('roteiroai_light_theme') === 'true',
-      textSize: localStorage.getItem('roteiroai_text_size') || 'medium',
-      noAnimations: localStorage.getItem('roteiroai_no_animations') === 'true'
-    }
-  };
-  
-  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `tarefasia_backup_${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  
-  const sub = document.getElementById('exportDataSubtitle');
-  if (sub) {
-    sub.textContent = '✅ Exportado com sucesso!';
-    setTimeout(() => { sub.textContent = 'Baixar backup completo'; }, 3000);
-  }
-}
+
 
 // ── Support Settings ──────────────────────────────────────────────────────────
 function openHelpCenter() {
@@ -1889,7 +1935,7 @@ async function generateTaskDetailsWithIA() {
 
   if (!targetTask) return;
 
-  const localKey = localStorage.getItem('google_api_key');
+  const localKey = null;
   let serverHasKey = false;
   
   if (!localKey) {
@@ -2106,18 +2152,35 @@ function addAIMessage(role, text, isTyping = false, isReport = false, fileConfig
       btn.style.fontSize = '11px';
       btn.style.padding = '8px 12px';
       
-      if (fileConfig) {
-        btn.innerHTML = `📥 Baixar PDF (${fileConfig.title})`;
-        btn.onclick = function() {
-          downloadCustomPeriodPDF(fileConfig.type, fileConfig.date, fileConfig.title, text);
-        };
-      } else {
-        btn.innerHTML = '📥 Baixar Relatório em PDF';
-        btn.dataset.rawText = text;
-        btn.onclick = function() {
-          downloadReportPDF(this.dataset.rawText);
-        };
-      }
+      btn.innerHTML = '📥 Gerar Relatório em PDF';
+      
+      const isCustom = !!fileConfig;
+      const pType = fileConfig ? fileConfig.type : null;
+      const pDate = fileConfig ? fileConfig.date : null;
+      const pTitle = fileConfig ? fileConfig.title : null;
+      const pText = text;
+
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        try {
+          if (typeof showPDFOptions === 'function') {
+            if (isCustom) {
+              showPDFOptions(pType, pDate, pTitle, pText, 'custom');
+            } else {
+              showPDFOptions(null, null, null, pText, 'standard');
+            }
+          } else {
+            throw new Error('showPDFOptions undefined');
+          }
+        } catch (err) {
+          console.error('Erro ao exibir modal de PDF, caindo para fallback', err);
+          if (isCustom) {
+            downloadCustomPeriodPDF(pType, pDate, pTitle, pText);
+          } else {
+            downloadReportPDF(pText);
+          }
+        }
+      });
       div.appendChild(btn);
     }
   }
@@ -2143,28 +2206,374 @@ function updateChatHistoryCounter() {
 }
 
 // ── Geração do PDF Corporativo Elegante com Dashboard Integrado ──────────────────
-async function downloadReportPDF(aiText) {
+// Diálogo de opções para PDF
+function showPDFOptions(type, date, title, aiText, reportType) {
+  const backdrop = document.createElement('div');
+  backdrop.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease-out;
+  `;
+
+  const dialog = document.createElement('div');
+  dialog.style.cssText = `
+    background: #161616;
+    border: 1px solid #1f1f1f;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s ease-out;
+  `;
+
+  dialog.innerHTML = `
+    <h3 style="color: #e8e8e8; margin: 0 0 8px 0; font-size: 16px; font-weight: 600;">
+      📄 Opções de Relatório
+    </h3>
+    <p style="color: #666666; font-size: 13px; margin: 0 0 20px 0; line-height: 1.4;">
+      Escolha como deseja compartilhar seu relatório
+    </p>
+    <div style="display: flex; gap: 12px; flex-direction: column;">
+      <button id="btnDownloadPDF" style="
+        background: #7c3aed;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">
+        ⬇️ Baixar PDF
+      </button>
+      <button id="btnShareWhatsApp" style="
+        background: #25d366;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#1fa857'" onmouseout="this.style.background='#25d366'">
+        💬 Compartilhar no WhatsApp
+      </button>
+      <button id="btnCancel" style="
+        background: #333333;
+        color: #e8e8e8;
+        border: 1px solid #1f1f1f;
+        border-radius: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      " onmouseover="this.style.background='#444444'" onmouseout="this.style.background='#333333'">
+        ✕ Cancelar
+      </button>
+    </div>
+  `;
+
+  backdrop.appendChild(dialog);
+  document.body.appendChild(backdrop);
+
+  const btnDownload = dialog.querySelector('#btnDownloadPDF');
+  const btnShare = dialog.querySelector('#btnShareWhatsApp');
+  const btnCancel = dialog.querySelector('#btnCancel');
+
+  const close = () => {
+    backdrop.style.animation = 'fadeOut 0.2s ease-out forwards';
+    setTimeout(() => backdrop.remove(), 200);
+  };
+
+  btnDownload.addEventListener('click', () => {
+    close();
+    if (reportType === 'custom') {
+      downloadCustomPeriodPDF(type, date, title, aiText);
+    } else {
+      downloadReportPDF(aiText);
+    }
+  });
+
+  btnShare.addEventListener('click', () => {
+    close();
+    if (reportType === 'custom') {
+      shareReportViaWhatsApp(type, date, title, aiText, 'custom');
+    } else {
+      shareReportViaWhatsApp(null, null, null, aiText, 'standard');
+    }
+  });
+
+  btnCancel.addEventListener('click', close);
+  backdrop.addEventListener('click', (e) => {
+    if (e.target === backdrop) close();
+  });
+
+  // Add animations
+  const style = document.createElement('style');
+  if (!document.getElementById('pdf-animations')) {
+    style.id = 'pdf-animations';
+    style.textContent = `
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+      @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+// Compartilhar via WhatsApp com arquivo PDF real
+async function shareReportViaWhatsApp(type, date, title, aiText, reportType) {
+  try {
+    // Gera o PDF primeiro
+    let element, opt, fileName;
+    
+    if (reportType === 'custom') {
+      element = createCustomPDFElement(type, date, title, aiText);
+      const now = new Date();
+      fileName = `relatorio_${title}_${now.toISOString().slice(0, 10)}.pdf`;
+      opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.99 },
+        html2canvas: { scale: 3, useCORS: true, backgroundColor: '#000000' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+    } else {
+      element = createStandardPDFElement(aiText);
+      const now = new Date();
+      fileName = `relatorio_tarefas_ia_${now.toISOString().slice(0, 10)}.pdf`;
+      opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.99 },
+        html2canvas: { scale: 3, useCORS: true, backgroundColor: '#000000' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+    }
+
+    // document.body.appendChild(element); removed for safe HTML rendering
+
+    console.log('🔵 Gerando PDF para compartilhamento...');
+    const dataUri = await html2pdf().set(opt).from(element).outputPdf('datauristring');
+
+    if (!dataUri || dataUri.length < 100) {
+      throw new Error('PDF vazio.');
+    }
+
+    updateStatus('Salvando...');
+
+    const { Filesystem, Share } = window.Capacitor.Plugins;
+    const base64 = dataUri.split(',')[1];
+    
+    // Salva o arquivo em Documents
+    await Filesystem.writeFile({
+      path: fileName,
+      data: base64,
+      directory: Directory.Documents,
+      recursive: true
+    });
+    console.log('✅ PDF salvo em Documents');
+
+    // Obtém a URL do arquivo salvo
+    const fileUri = await Filesystem.getUri({
+      directory: Directory.Documents,
+      path: fileName
+    });
+    
+    console.log('🔵 Compartilhando arquivo PDF via Share...');
+    await Share.share({
+      title: 'Relatório de Tarefas',
+      text: '📊 Confira meu relatório de tarefas gerado pela IA!',
+      url: fileUri.uri,
+      files: [fileUri.uri]
+    });
+    
+    console.log('✅ Arquivo compartilhado com sucesso');
+    alert('✅ PDF compartilhado! Abra o WhatsApp e selecione a conversa.');
+  } catch (err) {
+    console.error('❌ Erro no compartilhamento Capacitor:', err);
+    alert('❌ Erro ao compartilhar. Tente fazer download e compartilhar manualmente.');
+  }
+}
+
+// Compartilhar via Desktop (faz download e abre WhatsApp Web)
+async function shareViaDesktop(pdfBlob, fileName) {
+  try {
+    console.log('🔵 Preparando download do PDF...');
+    
+    // Cria link para download
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log('✅ PDF baixado com sucesso');
+    
+    // Limpa URL
+    setTimeout(() => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        console.warn('Erro ao revogar URL:', e);
+      }
+    }, 60000);
+
+    // Abre WhatsApp Web
+    console.log('🔵 Abrindo WhatsApp Web...');
+    const message = encodeURIComponent('📊 Confira meu relatório de tarefas! 📎');
+    window.open(`https://web.whatsapp.com/send?text=${message}`, '_blank');
+    
+    alert('✅ PDF baixado! Abra o WhatsApp Web em outra aba e anexe o arquivo.');
+  } catch (err) {
+    console.error('❌ Erro ao compartilhar no desktop:', err);
+    alert('❌ Erro ao fazer download. Tente fazer download manual do PDF.');
+  }
+}
+
+// Funções auxiliares para criar elementos PDF
+function createStandardPDFElement(aiText) {
   const element = document.createElement('div');
-  element.style.width = '210mm';
+  element.style.width = '800px';
   element.style.fontFamily = "'Inter', sans-serif";
-  element.style.color = '#e8e8e8';
-  element.style.backgroundColor = '#000000';
+  element.style.color = '#1a1a1a';
+  element.style.backgroundColor = '#ffffff';
   element.style.lineHeight = '1.5';
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
+  element.style.position = 'absolute';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-1';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   
   const headerHTML = `
-    <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+    <div style="background: #000000; border-radius: 4px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
-        <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Relatório de Desempenho Executivo</p>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">Tarefas <span style="color:#a9e34b">IA</span></h1>
+        <p style="margin: 4px 0 0 0; color: #aaaaaa; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Relatório de Desempenho Executivo</p>
       </div>
       <div style="text-align: right;">
-        <div style="font-size: 8px; color: #666666; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px;">Data de Emissão</div>
+        <div style="font-size: 8px; color: #888888; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px;">Data de Emissão</div>
+        <div style="font-size: 12px; color: #ffffff; font-weight: 700;">${dateStr} às ${timeStr}</div>
+      </div>
+    </div>
+  `;
+
+  const aiFormatted = aiText.replace(/\n/g, '<br>');
+  const aiHTML = `
+    <div style="background: #fdfbff; border: 1px solid #e9ecef; border-left: 5px solid #7c3aed; padding: 18px; border-radius: 8px; margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <span style="font-size: 16px; color: #7c3aed; font-weight: bold; line-height: 1;">✦</span>
+        <span style="font-size: 10px; color: #7c3aed; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ANÁLISE ESTATÍSTICA (IA GEMINI)</span>
+      </div>
+      <div style="font-size: 11.5px; color: #333333; line-height: 1.6; font-style: italic;">
+        "${aiFormatted}"
+      </div>
+    </div>
+  `;
+
+  element.innerHTML = `<div style="padding: 15mm;">${headerHTML}${aiHTML}</div>`;
+  return element;
+}
+
+function createCustomPDFElement(type, date, title, aiText) {
+  const element = document.createElement('div');
+  element.style.width = '800px';
+  element.style.fontFamily = "'Inter', sans-serif";
+  element.style.color = '#1a1a1a';
+  element.style.backgroundColor = '#ffffff';
+  element.style.lineHeight = '1.5';
+  element.style.fontSize = '12px';
+  element.style.fontWeight = '400';
+  element.style.position = 'absolute';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-1';
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  
+  const headerHTML = `
+    <div style="background: #000000; border-radius: 4px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">Tarefas <span style="color:#a9e34b">IA</span></h1>
+        <p style="margin: 4px 0 0 0; color: #aaaaaa; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${title || 'Relatório de Atividades'}</p>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 8px; color: #888888; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px;">Período</div>
+        <div style="font-size: 12px; color: #ffffff; font-weight: 700;">${dateStr}</div>
+      </div>
+    </div>
+  `;
+
+  const aiFormatted = aiText.replace(/\n/g, '<br>');
+  const aiHTML = `
+    <div style="background: #fdfbff; border: 1px solid #e9ecef; border-left: 5px solid #7c3aed; padding: 18px; border-radius: 8px; margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+        <span style="font-size: 16px; color: #7c3aed; font-weight: bold; line-height: 1;">✦</span>
+        <span style="font-size: 10px; color: #7c3aed; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ANÁLISE DO PERÍODO</span>
+      </div>
+      <div style="font-size: 11.5px; color: #333333; line-height: 1.6;">
+        ${aiFormatted}
+      </div>
+    </div>
+  `;
+
+  element.innerHTML = `<div style="padding: 15mm;">${headerHTML}${aiHTML}</div>`;
+  return element;
+}
+
+async function downloadReportPDF(aiText) {
+  const element = document.createElement('div');
+  element.style.width = '800px';
+  element.style.fontFamily = "'Inter', sans-serif";
+  element.style.color = '#1a1a1a';
+  element.style.backgroundColor = '#ffffff';
+  element.style.lineHeight = '1.5';
+  element.style.fontSize = '12px';
+  element.style.fontWeight = '400';
+  element.style.position = 'absolute';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-1';
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  
+  const headerHTML = `
+    <div style="background: #000000; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; border-radius: 4px;">
+      <div>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">Tarefas <span style="color:#a9e34b">IA</span></h1>
+        <p style="margin: 4px 0 0 0; color: #aaaaaa; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">Relatório de Desempenho Executivo</p>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 8px; color: #888888; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px;">Data de Emissão</div>
         <div style="font-size: 12px; color: #ffffff; font-weight: 700;">${dateStr} às ${timeStr}</div>
       </div>
     </div>
@@ -2181,15 +2590,15 @@ async function downloadReportPDF(aiText) {
 
   const statsHTML = `
     <div style="display: flex; gap: 15px; margin-bottom: 25px;">
-      <div style="flex: 1; background: #111111; border: 1px solid #1f1f1f; border-top: 4px solid #7c3aed; border-radius: 10px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-        <div style="font-size: 24px; font-weight: 800; color: #b197fc; line-height: 1;">${totalTasks}</div>
+      <div style="flex: 1; border: 1px solid #e0e0e0; border-top: 4px solid #7c3aed; border-radius: 8px; padding: 15px; text-align: center;">
+        <div style="font-size: 24px; font-weight: 800; color: #7c3aed; line-height: 1;">${totalTasks}</div>
         <div style="font-size: 9px; color: #666666; font-weight: 700; text-transform: uppercase; margin-top: 6px; letter-spacing: 0.5px;">Tarefas Mapeadas</div>
       </div>
-      <div style="flex: 1; background: #111111; border: 1px solid #1f1f1f; border-top: 4px solid #10b981; border-radius: 10px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
-        <div style="font-size: 24px; font-weight: 800; color: #69db7c; line-height: 1;">${doneTasks}</div>
+      <div style="flex: 1; border: 1px solid #e0e0e0; border-top: 4px solid #10b981; border-radius: 8px; padding: 15px; text-align: center;">
+        <div style="font-size: 24px; font-weight: 800; color: #10b981; line-height: 1;">${doneTasks}</div>
         <div style="font-size: 9px; color: #666666; font-weight: 700; text-transform: uppercase; margin-top: 6px; letter-spacing: 0.5px;">Tarefas Concluídas</div>
       </div>
-      <div style="flex: 1; background: #111111; border: 1px solid #1f1f1f; border-top: 4px solid #f59e0b; border-radius: 10px; padding: 15px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+      <div style="flex: 1; border: 1px solid #e0e0e0; border-top: 4px solid #f59e0b; border-radius: 8px; padding: 15px; text-align: center;">
         <div style="font-size: 24px; font-weight: 800; color: #ffd43b; line-height: 1;">${pct}%</div>
         <div style="font-size: 9px; color: #666666; font-weight: 700; text-transform: uppercase; margin-top: 6px; letter-spacing: 0.5px;">Taxa de Eficiência</div>
       </div>
@@ -2207,21 +2616,21 @@ async function downloadReportPDF(aiText) {
 
     dbChartBarsHTML += `
       <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; max-width: 45px;">
-        <div style="font-family: 'Goldman', sans-serif; font-size: 10px; color: ${d.color}; font-weight: 700; margin-bottom: 2px;">${dayPct}%</div>
-        <div style="width: 24px; height: 70px; background: #1f1f1f; border-radius: 5px; position: relative; overflow: hidden;">
-          <div style="width: 100%; height: ${dayPct}%; background: ${d.color}; position: absolute; bottom: 0; border-radius: 5px; box-shadow: 0 0 8px ${d.color}cc;"></div>
+        <div style="font-size: 10px; color: #333; font-weight: 700; margin-bottom: 2px;">${dayPct}%</div>
+        <div style="width: 24px; height: 70px; background: #f0f0f0; border-radius: 5px; position: relative; overflow: hidden;">
+          <div style="width: 100%; height: ${dayPct}%; background: ${d.color}; position: absolute; bottom: 0; border-radius: 5px;"></div>
         </div>
-        <div style="font-family: 'Goldman', sans-serif; font-size: 10px; color: #666666; font-weight: 700; text-transform: uppercase; margin-top: 2px;">${d.shortName}</div>
+        <div style="font-size: 10px; color: #888; font-weight: 700; text-transform: uppercase; margin-top: 2px;">${d.shortName}</div>
       </div>
     `;
 
     dbBasesProgressHTML += `
       <div style="margin-bottom: 8px;">
         <div style="display: flex; justify-content: space-between; font-size: 10px; margin-bottom: 3px;">
-          <span style="font-weight: 700; color: #e8e8e8;">${d.name} (${d.dest})</span>
-          <span style="font-weight: 700; color: ${d.color};">${dCount}/${tCount}</span>
+          <span style="font-weight: 700; color: #444;">${d.name} (${d.dest})</span>
+          <span style="font-weight: 700; color: #111;">${dCount}/${tCount}</span>
         </div>
-        <div style="height: 6px; background: #1f1f1f; border-radius: 3px; overflow: hidden;">
+        <div style="height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
           <div style="height: 100%; width: ${dayPct}%; background: ${d.color}; border-radius: 3px;"></div>
         </div>
       </div>
@@ -2229,20 +2638,20 @@ async function downloadReportPDF(aiText) {
   });
 
   const dashboardSectionHTML = `
-    <div style="margin-bottom: 15px; border-bottom: 2px solid #1f1f1f; padding-bottom: 8px;">
-      <span style="font-size: 12px; color: #e8e8e8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Painel de Métricas (Dashboard)</span>
+    <div style="margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 8px;">
+      <span style="font-size: 12px; color: #111; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Painel de Métricas (Dashboard)</span>
     </div>
     
     <div style="display: flex; gap: 20px; margin-bottom: 25px; page-break-inside: avoid;">
-      <div style="flex: 1.2; border: 1px solid #1f1f1f; border-radius: 10px; padding: 15px; background: #111111;">
-        <h4 style="margin: 0 0 15px 0; font-size: 9px; color: #666666; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Desempenho Geral por Dia</h4>
+      <div style="flex: 1.2; border: 1px solid #eee; border-radius: 10px; padding: 15px; background: #ffffff;">
+        <h4 style="margin: 0 0 15px 0; font-size: 9px; color: #888; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Desempenho Geral por Dia</h4>
         <div style="display: flex; justify-content: center; gap: 12px; align-items: flex-end; height: 100px;">
           ${dbChartBarsHTML}
         </div>
       </div>
       
-      <div style="flex: 1; border: 1px solid #1f1f1f; border-radius: 10px; padding: 15px; background: #111111; display: flex; flex-direction: column; justify-content: center;">
-        <h4 style="margin: 0 0 15px 0; font-size: 9px; color: #666666; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Aproveitamento por Base</h4>
+      <div style="flex: 1; border: 1px solid #eee; border-radius: 10px; padding: 15px; background: #ffffff; display: flex; flex-direction: column; justify-content: center;">
+        <h4 style="margin: 0 0 15px 0; font-size: 9px; color: #888; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">Aproveitamento por Base</h4>
         <div style="display: flex; flex-direction: column; gap: 4px;">
           ${dbBasesProgressHTML}
         </div>
@@ -2252,19 +2661,19 @@ async function downloadReportPDF(aiText) {
 
   const aiFormatted = aiText.replace(/\n/g, '<br>');
   const aiHTML = `
-    <div style="background: #111111; border: 1px solid #1f1f1f; border-left: 5px solid #7c3aed; padding: 18px; border-radius: 8px; margin-bottom: 20px; page-break-inside: avoid;">
+    <div style="background: #fdfbff; border: 1px solid #e9ecef; border-left: 5px solid #7c3aed; padding: 18px; border-radius: 8px; margin-bottom: 20px; page-break-inside: avoid;">
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
         <span style="font-size: 16px; color: #7c3aed; font-weight: bold; line-height: 1;">✦</span>
         <span style="font-size: 10px; color: #7c3aed; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ANÁLISE ESTATÍSTICA (IA GEMINI)</span>
       </div>
-      <div style="font-size: 11.5px; color: #e8e8e8; line-height: 1.6; font-style: italic;">
+      <div style="font-size: 11.5px; color: #333333; line-height: 1.6; font-style: italic;">
         "${aiFormatted}"
       </div>
     </div>
   `;
 
   const footer1HTML = `
-    <div style="margin-top: 25px; border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
+    <div style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #aaa; font-weight: 500;">
       <span>TarefasIA • Inteligência e Controle Operacional</span>
       <span>Página 1 de 2</span>
     </div>
@@ -2277,25 +2686,25 @@ async function downloadReportPDF(aiText) {
     let dayTasksHTML = '';
 
     if (dayTasks.length === 0) {
-      dayTasksHTML = `<p style="font-size: 10px; color: #666666; font-style: italic; margin: 4px 0; text-align: center;">Nenhuma atividade registrada.</p>`;
+      dayTasksHTML = `<p style="font-size: 10px; color: #999; font-style: italic; margin: 4px 0; text-align: center;">Nenhuma atividade registrada.</p>`;
     } else {
       dayTasks.forEach(t => {
         const checkIcon = t.done ? 
-          `<div style="width: 12px; height: 12px; border-radius: 50%; background: rgba(105, 219, 124, 0.15); border: 1.2px solid #69db7c; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #69db7c; font-weight: bold; margin-right: 8px; flex-shrink: 0;">✓</div>` : 
-          `<div style="width: 12px; height: 12px; border-radius: 50%; border: 1.2px solid #333333; margin-right: 8px; flex-shrink: 0;"></div>`;
-        const textStyle = t.done ? 'text-decoration: line-through; color: #666666; font-style: italic;' : 'color: #e8e8e8; font-weight: 500;';
+          `<div style="width: 12px; height: 12px; border-radius: 50%; background: rgba(16, 185, 129, 0.1); border: 1.2px solid #10b981; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #10b981; font-weight: bold; margin-right: 8px; flex-shrink: 0;">✓</div>` :
+          `<div style="width: 12px; height: 12px; border-radius: 50%; border: 1.2px solid #ccc; margin-right: 8px; flex-shrink: 0;"></div>`;
+        const textStyle = t.done ? 'text-decoration: line-through; color: #888; font-style: italic;' : 'color: #333; font-weight: 500;';
         
         let detailsHTML = '';
         if (t.details) {
-          detailsHTML = `<div style="font-size: 8.5px; color: #a9e34b; margin-left: 20px; margin-top: 4px; padding: 4px 8px; border-left: 2px solid rgba(169, 227, 75, 0.2); background: #161616; font-style: normal; line-height: 1.3; border-radius: 2px;">${t.details.replace(/\n/g, '<br>')}</div>`;
+          detailsHTML = `<div style="font-size: 8.5px; color: #444; margin-left: 20px; margin-top: 4px; padding: 4px 8px; border-left: 2px solid #eee; background: #f9f9f9; font-style: normal; line-height: 1.3; border-radius: 2px;">${t.details.replace(/\n/g, '<br>')}</div>`;
         }
 
         dayTasksHTML += `
-          <div style="font-size: 10px; padding: 4px 0; border-bottom: 1px solid #1f1f1f;">
+          <div style="font-size: 10px; padding: 4px 0; border-bottom: 1px solid #eee;">
             <div style="display: flex; align-items: center;">
               ${checkIcon}
               <div style="${textStyle} flex: 1; word-break: break-word;">${t.text}</div>
-              ${t.time ? `<div style="font-size: 8px; color: #666666; margin-left: 8px; font-family: monospace; font-weight: 600; background: #161616; padding: 2px 4px; border-radius: 3px; flex-shrink: 0;">${t.time}</div>` : ''}
+              ${t.time ? `<div style="font-size: 8px; color: #777; margin-left: 8px; font-family: monospace; font-weight: 600; background: #f0f0f0; padding: 2px 4px; border-radius: 3px; flex-shrink: 0;">${t.time}</div>` : ''}
             </div>
             ${detailsHTML}
           </div>
@@ -2304,12 +2713,12 @@ async function downloadReportPDF(aiText) {
     }
 
     const cardHTML = `
-      <div style="margin-bottom: 12px; border: 1px solid #1f1f1f; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.2); page-break-inside: avoid;">
-        <div style="display: flex; align-items: center; justify-content: space-between; background: #161616; padding: 8px 12px; border-bottom: 1px solid #1f1f1f; border-left: 4px solid ${d.color};">
-          <span style="font-weight: 700; font-size: 11px; color: #e8e8e8;">${d.name} <span style="font-weight: 400; color: #666666; margin-left: 4px; font-size: 9.5px;">(${d.dateLabel}) • 📍 ${d.dest}</span></span>
+      <div style="margin-bottom: 12px; border: 1px solid #eee; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); page-break-inside: avoid;">
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #fcfcfc; padding: 8px 12px; border-bottom: 1px solid #eee; border-left: 4px solid ${d.color};">
+          <span style="font-weight: 700; font-size: 11px; color: #111;">${d.name} <span style="font-weight: 400; color: #777; margin-left: 4px; font-size: 9.5px;">(${d.dateLabel}) • 📍 ${d.dest}</span></span>
           <span style="font-size: 7px; padding: 2px 6px; border-radius: 10px; background: ${d.color}15; color: ${d.color}; font-weight: 800; border: 1px solid ${d.color}25; text-transform: uppercase; letter-spacing: 0.5px;">${d.tipo}</span>
         </div>
-        <div style="padding: 6px 12px; background: #111111;">
+        <div style="padding: 6px 12px; background: #ffffff;">
           ${dayTasksHTML}
         </div>
       </div>
@@ -2324,14 +2733,14 @@ async function downloadReportPDF(aiText) {
   });
 
   const footer2HTML = `
-    <div style="margin-top: 25px; border-top: 1px solid #1f1f1f; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #666666; font-weight: 500;">
+    <div style="margin-top: 25px; border-top: 1px solid #eee; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 8px; color: #aaa; font-weight: 500;">
       <span>TarefasIA • Inteligência e Controle Operacional</span>
       <span>Página 2 de 2</span>
     </div>
   `;
 
   const page1HTML = `
-    <div style="box-sizing: border-box; width: 210mm; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+    <div style="box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
       <div>
         ${headerHTML}
         ${statsHTML}
@@ -2343,10 +2752,10 @@ async function downloadReportPDF(aiText) {
   `;
 
   const page2HTML = `
-    <div style="page-break-before: always; box-sizing: border-box; width: 210mm; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+    <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #ffffff; display: flex; flex-direction: column; justify-content: space-between;">
       <div>
-        <div style="margin-bottom: 15px; border-bottom: 2px solid #1f1f1f; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 12px; color: #e8e8e8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Cronograma Detalhado de Atividades</span>
+        <div style="margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: #111; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Cronograma Detalhado de Atividades</span>
         </div>
         <div style="display: flex; gap: 16px;">
           <div style="flex: 1; width: 50%; display: flex; flex-direction: column;">
@@ -2362,13 +2771,13 @@ async function downloadReportPDF(aiText) {
   `;
 
   element.innerHTML = page1HTML + page2HTML;
-  document.body.appendChild(element);
+  // document.body.appendChild(element); removed for safe HTML rendering
 
   const opt = {
     margin:       0,
     filename:     `relatorio_tarefas_ia_${now.toISOString().slice(0,10)}.pdf`,
     image:        { type: 'jpeg', quality: 0.99 },
-    html2canvas:  { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#000000' },
+    html2canvas:  { scale: 1, useCORS: true, backgroundColor: '#ffffff' },
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
@@ -2376,12 +2785,29 @@ async function downloadReportPDF(aiText) {
 }
 
 async function exportPDFElement(element, opt, loadingModal = null, originalTitle = '', originalDesc = '') {
-  const cleanup = () => {
-    if (element && element.parentNode) {
-      element.parentNode.removeChild(element);
+  if (!loadingModal) {
+    loadingModal = document.getElementById('loadingModal');
+  }
+
+  let originalBg = '';
+  if (loadingModal) {
+    originalBg = loadingModal.style.backgroundColor;
+    loadingModal.style.backgroundColor = '#1a1a1a'; // Solid background to hide PDF
+  }
+
+  const updateStatus = (text) => {
+    if (loadingModal) {
+      const modalDesc = loadingModal.querySelector('.modal-desc');
+      if (modalDesc) modalDesc.innerText = text;
     }
+    console.log('PDF Status:', text);
+  };
+
+  const cleanup = () => {
+    if (element && element.parentNode) element.parentNode.removeChild(element);
     if (loadingModal) {
       loadingModal.style.display = 'none';
+      loadingModal.style.backgroundColor = originalBg;
       const modalTitle = loadingModal.querySelector('.modal-title');
       const modalDesc = loadingModal.querySelector('.modal-desc');
       if (modalTitle && originalTitle) modalTitle.innerHTML = originalTitle;
@@ -2390,23 +2816,103 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
   };
 
   try {
-    await html2pdf().set(opt).from(element).save();
-  } catch (err) {
-    console.warn('html2pdf save falhou, tentando fallback...', err);
-    try {
+    updateStatus('Preparando documento visual...');
+
+    // Substituir dimensões mm por px para evitar crash no html2canvas
+    if (element.style.width && element.style.width.includes('mm')) element.style.width = '800px';
+    
+    // Configuração crucial para NÃO travar a memória (OOM):
+    // Tem que estar no DOM visível, na coordenada 0,0.
+    // Usamos z-index: 1 (fica atrás do modal que tem z-index alto e fundo sólido).
+    element.style.position = 'absolute';
+    element.style.top = '0px';
+    element.style.left = '0px';
+    element.style.zIndex = '1';
+    
+    document.body.appendChild(element);
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    updateStatus('Iniciando conversão...');
+    
+    const isNative = window.Capacitor && window.Capacitor.isNative;
+    
+    opt.html2canvas = {
+      ...opt.html2canvas,
+      scale: 2,
+      useCORS: true,
+      scrollY: 0,
+      scrollX: 0,
+      
+    };
+
+    if (!isNative) {
+      updateStatus('Gerando PDF Web...');
       const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.rel = 'noopener';
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-    } catch (fallbackErr) {
-      console.error('Erro no fallback de PDF:', fallbackErr);
-      alert('Não foi possível gerar o PDF no seu dispositivo. Tente usar o app no navegador ou outro dispositivo.');
+      
+      const file = new File([pdfBlob], opt.filename || 'relatorio.pdf', { type: 'application/pdf' });
+      
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        updateStatus('Abrindo menu de envio...');
+        try {
+          await navigator.share({
+            files: [file],
+            title: opt.filename || 'Relatório PDF',
+            text: 'Aqui está o relatório em PDF.'
+          });
+        } catch (shareErr) {
+          console.warn('Share failed or cancelled:', shareErr);
+          // Fallback to download
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = opt.filename || 'relatorio.pdf';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+      } else {
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = opt.filename || 'relatorio.pdf';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      cleanup();
+      return;
     }
-  } finally {
+
+    updateStatus('Renderizando páginas...');
+    const dataUri = await html2pdf().set(opt).from(element).outputPdf('datauristring');
+
+    if (!dataUri || dataUri.length < 100) {
+      throw new Error('PDF vazio ou falha na conversão.');
+    }
+
+    updateStatus('Salvando PDF no dispositivo...');
+
+    const { Filesystem, Share } = window.Capacitor.Plugins;
+    const base64 = dataUri.split(',')[1];
+    
+    const writeResult = await Filesystem.writeFile({
+      path: opt.filename || 'relatorio.pdf',
+      data: base64,
+      directory: 'CACHE',
+      recursive: true
+    });
+
+    updateStatus('Abrindo menu de envio...');
+
+    await Share.share({
+      title: opt.filename || 'Relatório PDF',
+      url: writeResult.uri,
+      dialogTitle: 'Visualizar Relatório'
+    });
+
+    cleanup();
+  } catch (err) {
+    console.error('Erro detalhado PDF:', err);
+    alert('❌ Erro ao gerar PDF: ' + err.message);
     cleanup();
   }
 }
@@ -2414,30 +2920,22 @@ async function exportPDFElement(element, opt, loadingModal = null, originalTitle
 async function downloadCustomPeriodPDF(type, date, title, aiText) {
   // Show a loading indicator
   const loadingModal = document.getElementById('loadingModal');
-  let originalTitle = '';
-  let originalDesc = '';
   if (loadingModal) {
-    const modalTitle = loadingModal.querySelector('.modal-title');
-    const modalDesc = loadingModal.querySelector('.modal-desc');
-    if (modalTitle) {
-      originalTitle = modalTitle.innerHTML;
-      modalTitle.innerHTML = `Gerando <span>PDF</span>`;
-    }
-    if (modalDesc) {
-      originalDesc = modalDesc.innerHTML;
-      modalDesc.innerHTML = `Aguarde, a IA está organizando suas informações e formatando o PDF executivo...`;
-    }
     loadingModal.style.display = 'flex';
   }
 
   const element = document.createElement('div');
-  element.style.width = '210mm';
+  element.style.width = '800px';
   element.style.fontFamily = "'Inter', sans-serif";
-  element.style.color = '#e8e8e8';
-  element.style.backgroundColor = '#000000';
+  element.style.color = '#1a1a1a';
+  element.style.backgroundColor = '#ffffff';
   element.style.lineHeight = '1.5';
   element.style.fontSize = '12px';
   element.style.fontWeight = '400';
+  element.style.position = 'absolute';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-1';
 
   const now = new Date();
   const dateStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -2445,14 +2943,14 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
 
   // Header HTML
   const headerHTML = `
-    <div style="background: linear-gradient(135deg, #111111, #161616); border: 1px solid #1f1f1f; border-radius: 12px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 10px rgba(0,0,0,0.25);">
+    <div style="background: #000000; border-radius: 4px; padding: 25px 30px; margin-bottom: 25px; color: #ffffff; display: flex; justify-content: space-between; align-items: center;">
       <div>
-        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">DA<span style="color:#a9e34b">SH</span></h1>
-        <p style="margin: 4px 0 0 0; color: #666666; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${title || 'Relatório de Atividades'}</p>
+        <h1 style="margin: 0; font-family: 'Goldman', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; color: #ffffff;">Tarefas <span style="color:#a9e34b">IA</span></h1>
+        <p style="margin: 4px 0 0 0; color: #aaaaaa; font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 600;">${title || 'Relatório de Atividades'}</p>
       </div>
       <div style="text-align: right;">
-        <div style="font-size: 8px; color: #666666; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px;">Data de Emissão</div>
-        <div style="font-size: 12px; color: #ffffff; font-weight: 700;">${dateStr} às ${timeStr}</div>
+        <div style="font-size: 8px; color: #888888; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 2px;">Data de Emissão</div>
+        <div style="font-size: 11px; color: #ffffff; font-weight: 700;">${dateStr} às ${timeStr}</div>
       </div>
     </div>
   `;
@@ -2460,16 +2958,17 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
   // AI Analysis Section
   const aiFormatted = aiText.replace(/\n/g, '<br>');
   const aiHTML = `
-    <div style="background: #111111; border: 1px solid #1f1f1f; border-left: 5px solid #7c3aed; padding: 18px; border-radius: 8px; margin-bottom: 20px; page-break-inside: avoid;">
+    <div style="background: #fdfbff; border: 1px solid #e9ecef; border-left: 5px solid #7c3aed; padding: 18px; border-radius: 8px; margin-bottom: 20px;">
       <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
         <span style="font-size: 16px; color: #7c3aed; font-weight: bold; line-height: 1;">✦</span>
         <span style="font-size: 10px; color: #7c3aed; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ANÁLISE ESTATÍSTICA (IA GEMINI)</span>
       </div>
-      <div style="font-size: 11.5px; color: #e8e8e8; line-height: 1.6; font-style: italic;">
+      <div style="font-size: 11.5px; color: #333333; line-height: 1.6; font-style: italic;">
         "${aiFormatted}"
       </div>
     </div>
   `;
+
 
   if (type === 'day') {
     // Daily report
@@ -2547,7 +3046,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     `;
 
     const pageHTML = `
-      <div style="box-sizing: border-box; width: 210mm; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           ${headerHTML}
           ${statsHTML}
@@ -2718,7 +3217,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     });
 
     const page1HTML = `
-      <div style="box-sizing: border-box; width: 210mm; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           ${headerHTML}
           ${statsHTML}
@@ -2733,7 +3232,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     `;
 
     const page2HTML = `
-      <div style="page-break-before: always; box-sizing: border-box; width: 210mm; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           <div style="margin-bottom: 15px; border-bottom: 2px solid #1f1f1f; padding-bottom: 8px; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 12px; color: #e8e8e8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Cronograma Detalhado da Semana</span>
@@ -2856,7 +3355,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     }
 
     const page1HTML = `
-      <div style="box-sizing: border-box; width: 210mm; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           ${headerHTML}
           ${statsHTML}
@@ -2876,7 +3375,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     `;
 
     const page2HTML = `
-      <div style="page-break-before: always; box-sizing: border-box; width: 210mm; height: 296mm; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
+      <div style="page-break-before: always; box-sizing: border-box; width: 800px; height: 1120px; padding: 12mm 15mm; background-color: #000000; display: flex; flex-direction: column; justify-content: space-between;">
         <div>
           <div style="margin-bottom: 12px; border-bottom: 2px solid #1f1f1f; padding-bottom: 6px; display: flex; align-items: center; gap: 8px;">
             <span style="font-size: 11px; color: #e8e8e8; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px;">Detalhamento Cronológico das Atividades</span>
@@ -2895,13 +3394,13 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
     element.innerHTML = page1HTML + page2HTML;
   }
 
-  document.body.appendChild(element);
+  // document.body.appendChild(element); removed for safe HTML rendering
 
   const opt = {
     margin:       0,
     filename:     `relatorio_tarefas_ia_${type}_${date}.pdf`,
     image:        { type: 'jpeg', quality: 0.99 },
-    html2canvas:  { scale: 3, useCORS: true, letterRendering: true, antialiasing: true, backgroundColor: '#000000' },
+    html2canvas:  { scale: 3, useCORS: true, backgroundColor: '#000000' },
     jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
 
@@ -2910,7 +3409,7 @@ async function downloadCustomPeriodPDF(type, date, title, aiText) {
 
 // ── Exportação Rápida com IA via Dashboard ──────────────────────────────────────
 async function exportDashboardPDF() {
-  const localKey = localStorage.getItem('google_api_key');
+  const localKey = null;
   let serverHasKey = false;
   
   if (!localKey) {
@@ -2958,8 +3457,320 @@ Responda em português brasileiro de forma profissional e direta.`;
   }
 }
 
+async function generateMonthlyPDF(userId, month, year) {
+  const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  const monthName = monthNames[month - 1] || 'Mês';
+  const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
+  const endDate = new Date(year, month, 1, 0, 0, 0, 0);
+  const fileName = `relatorio_mensal_${monthName.toLowerCase()}_${year}.pdf`;
+
+  const userName = await resolveMonthlyReportUserName(userId);
+
+  const { data, error } = await _supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('created_at', startDate.toISOString())
+    .lt('created_at', endDate.toISOString())
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao buscar tarefas mensais:', error);
+    alert('Não foi possível carregar as tarefas do mês. Verifique sua conexão e tente novamente.');
+    return;
+  }
+
+  const taskGroups = groupMonthlyTasks(data, month, year);
+  const summary = buildMonthlyMetrics(taskGroups);
+  const aiSummary = await buildMonthlyAISummary(monthName, year, summary, taskGroups);
+
+  const element = document.createElement('div');
+  element.style.width = '800px';
+  element.style.backgroundColor = '#0a0a0a';
+  element.style.color = '#e8e8e8';
+  element.style.fontFamily = "'Inter', sans-serif";
+  element.style.padding = '0';
+  element.style.position = 'absolute';
+  element.style.top = '0px';
+  element.style.left = '0px';
+  element.style.zIndex = '-1';
+  element.innerHTML = createMonthlyPDFTemplate(userName, monthName, year, taskGroups, summary, aiSummary);
+  // document.body.appendChild(element); removed for safe HTML rendering
+
+  const opt = {
+    margin: 10,
+    filename: fileName,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 3, useCORS: true, backgroundColor: '#0a0a0a' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  await exportPDFElement(element, opt);
+}
+
+async function resolveMonthlyReportUserName(userId) {
+  if (currentUser && currentUser.id === userId) {
+    return (currentUser.user_metadata || {}).full_name || currentUser.email || 'Usuário Tarefas IA';
+  }
+
+  try {
+    const { data, error } = await _supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', userId)
+      .single();
+
+    if (!error && data) {
+      return data.full_name || data.email || 'Usuário Tarefas IA';
+    }
+  } catch (e) {
+    console.warn('Erro ao buscar nome do usuário para relatório mensal:', e);
+  }
+
+  return 'Usuário Tarefas IA';
+}
+
+function groupMonthlyTasks(tasks, month, year) {
+  const grouped = {};
+
+  tasks.forEach(task => {
+    const taskDate = parseTaskDate(task);
+    if (taskDate.getMonth() !== month - 1 || taskDate.getFullYear() !== year) return;
+
+    const weekStart = getMonday(taskDate);
+    const weekKey = formatDateISO(weekStart);
+    const rangeStart = new Date(weekStart);
+    const rangeEnd = new Date(weekStart);
+    rangeEnd.setDate(rangeEnd.getDate() + 6);
+
+    if (!grouped[weekKey]) {
+      grouped[weekKey] = {
+        weekKey,
+        weekStart: new Date(weekStart),
+        weekEnd: new Date(rangeEnd),
+        tasks: [],
+        total: 0,
+        done: 0
+      };
+    }
+
+    grouped[weekKey].tasks.push(task);
+    grouped[weekKey].total += 1;
+    grouped[weekKey].done += task.done ? 1 : 0;
+  });
+
+  const sorted = Object.values(grouped).sort((a, b) => a.weekStart - b.weekStart);
+  return sorted.map((group, index) => {
+    const startLabel = formatDateBR(group.weekStart);
+    const endLabel = formatDateBR(group.weekEnd);
+    return {
+      ...group,
+      label: `Semana ${index + 1}`,
+      rangeLabel: `${startLabel} – ${endLabel}`,
+      completion: group.total ? Math.round((group.done / group.total) * 100) : 0,
+      tasks: group.tasks.sort((a, b) => parseTaskDate(a) - parseTaskDate(b))
+    };
+  });
+}
+
+function parseTaskDate(task) {
+  if (task.created_at) {
+    return new Date(task.created_at);
+  }
+  if (task.day_id) {
+    return new Date(`${task.day_id}T00:00:00`);
+  }
+  return new Date();
+}
+
+function buildMonthlyMetrics(weekGroups) {
+  const totalTasks = weekGroups.reduce((sum, group) => sum + group.total, 0);
+  const totalDone = weekGroups.reduce((sum, group) => sum + group.done, 0);
+  const completion = totalTasks ? Math.round((totalDone / totalTasks) * 100) : 0;
+
+  return {
+    totalTasks,
+    totalDone,
+    totalPending: totalTasks - totalDone,
+    completion,
+    weeks: weekGroups.length
+  };
+}
+
+async function buildMonthlyAISummary(monthName, year, metrics, weekGroups) {
+  const localKey = null;
+  let serverHasKey = false;
+  try {
+    if (!localKey) {
+      const statusRes = await fetch(`${BASE_URL}/api/status`);
+      const statusData = await statusRes.json();
+      serverHasKey = statusData.serverHasKey === true;
+    }
+  } catch (e) {
+    console.warn('Erro ao checar status do servidor para IA mensal:', e);
+  }
+
+  const fallback = `O mês de ${monthName} apresentou ${metrics.totalTasks} tarefas, com ${metrics.totalDone} concluídas e ${metrics.totalPending} pendentes, resultando em uma taxa de conclusão de ${metrics.completion}%. O fluxo de trabalho foi agrupado em ${metrics.weeks} semanas e as principais entregas foram priorizadas para manter consistência nas rotas e atendimento operacional.`;
+
+  
+
+  const systemPrompt = `Você é um analista executivo de operações de campo que escreve relatórios mensais de produtividade.`;
+  const prompt = `Baseado nos dados abaixo, gere um resumo executivo de performance e recomendações operacionais para o mês de ${monthName} de ${year}. Use português brasileiro e mantenha o texto em 2 parágrafos profissionais.
+
+- Tarefas totais: ${metrics.totalTasks}
+- Concluídas: ${metrics.totalDone}
+- Pendentes: ${metrics.totalPending}
+- Taxa de conclusão: ${metrics.completion}%
+- Semanas avaliadas: ${metrics.weeks}
+
+Inclua um comentário sobre a produtividade semanal e um ponto de atenção para o próximo mês.`;
+
+  try {
+    const data = await callGeminiWithProxyFallback(systemPrompt, prompt, localKey, false);
+    return data.text || fallback;
+  } catch (e) {
+    console.warn('IA mensal falhou, usando resumo fallback:', e);
+    return fallback;
+  }
+}
+
+function createMonthlyPDFTemplate(userName, monthName, year, weekGroups, metrics, aiSummary) {
+  const barSvg = generateMonthlyBarChartSVG(weekGroups);
+  const weekRows = weekGroups.map((group, idx) => {
+    const rows = group.tasks.map(task => {
+      const date = parseTaskDate(task);
+      const formattedDate = formatDateBR(date);
+      const status = task.done ? 'Concluída' : 'Pendente';
+      return `
+        <tr>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #121212; color: #d4d4d4; font-size: 10px;">${formattedDate}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #121212; color: #ffffff; font-size: 10px;">${task.text}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #121212; color: #00ff88; font-size: 10px;">${task.time || '—'}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #121212; color: ${task.done ? '#00ff88' : '#ff5f7a'}; font-size: 10px; font-weight: 700;">${status}</td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <div style="margin-bottom: 18px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:12px;color:#00ff88;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;">${group.label}</div>
+          <div style="font-size:10px;color:#8f8f8f;">${group.rangeLabel} • ${group.completion}%</div>
+        </div>
+        <div style="border:1px solid #121212;border-radius:12px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:10px 8px;background:#070707;color:#8f8f8f;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;">Data</th>
+                <th style="text-align:left;padding:10px 8px;background:#070707;color:#8f8f8f;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;">Descrição</th>
+                <th style="text-align:left;padding:10px 8px;background:#070707;color:#8f8f8f;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;">Horário</th>
+                <th style="text-align:left;padding:10px 8px;background:#070707;color:#8f8f8f;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;">Status</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div style="width:800px;min-height:1120px;background:#0a0a0a;color:#e8e8e8;padding:10mm 12mm;">
+      <div style="padding:20px;border:1px solid #111111;border-radius:22px;background:linear-gradient(180deg, rgba(10,10,10,0.96), rgba(12,12,12,0.98));box-shadow:0 30px 80px rgba(0,255,136,0.08);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,255,136,0.45));display:grid;place-items:center;box-shadow:0 0 20px rgba(0,255,136,0.16);">
+              <span style="font-family:'Goldman',sans-serif;font-size:28px;color:#ffffff;letter-spacing:-1px;">T</span>
+            </div>
+            <div>
+              <div style="font-size:11px;color:#00ff88;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;">Tarefas IA</div>
+              <div style="font-size:24px;color:#ffffff;font-weight:800;margin-top:4px;line-height:1.1;">Relatório Mensal</div>
+              <div style="font-size:11px;color:#8f8f8f;margin-top:4px;">${userName} • ${monthName} ${year}</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px;color:#8f8f8f;text-transform:uppercase;letter-spacing:0.2em;margin-bottom:6px;">Gerado em</div>
+            <div style="font-size:14px;color:#ffffff;font-weight:700;">${formatDateBR(new Date())}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;">
+          ${createMetricCard('Tarefas Totais', metrics.totalTasks, '#00ff88')}
+          ${createMetricCard('Concluídas', metrics.totalDone, '#00ff88')}
+          ${createMetricCard('Pendentes', metrics.totalPending, '#ff5f7a')}
+          ${createMetricCard('Produtividade', `${metrics.completion}%`, '#00ff88')}
+        </div>
+
+        <div style="margin-bottom:22px;padding:18px;border-radius:18px;background:#080808;border:1px solid #111111;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <div style="font-size:11px;color:#8f8f8f;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;">Produtividade Semanal</div>
+            <div style="font-size:10px;color:#6dffb9;">${weekGroups.length} semanas avaliadas</div>
+          </div>
+          ${barSvg}
+        </div>
+
+        <div style="padding:18px;background:#080808;border:1px solid #111111;border-radius:18px;margin-bottom:24px;">
+          <div style="font-size:11px;color:#8f8f8f;font-weight:700;text-transform:uppercase;letter-spacing:0.15em;margin-bottom:10px;">Análise da IA</div>
+          <div style="font-size:11px;line-height:1.7;color:#d4d4d4;">${aiSummary.replace(/\n/g, '<br>')}</div>
+        </div>
+
+        <div style="margin-bottom:18px;">
+          <div style="font-size:11px;color:#00ff88;font-weight:700;text-transform:uppercase;letter-spacing:0.16em;margin-bottom:10px;">Tabela mensal agrupada por semana</div>
+          ${weekRows}
+        </div>
+      </div>
+      <div style="margin-top:18px;font-size:9px;color:#6d6d6d;text-align:center;">Relatório gerado automaticamente pelo Tarefas IA • Design premium em dark mode para leitura noturna.</div>
+    </div>
+  `;
+}
+
+function createMetricCard(label, value, color) {
+  return `
+    <div style="padding:16px;border-radius:18px;background:linear-gradient(180deg, rgba(0,255,136,0.08), rgba(0,255,136,0));border:1px solid rgba(0,255,136,0.18);">
+      <div style="font-size:9px;color:#8f8f8f;text-transform:uppercase;letter-spacing:0.14em;font-weight:700;margin-bottom:8px;">${label}</div>
+      <div style="font-size:22px;color:${color};font-weight:800;">${value}</div>
+    </div>
+  `;
+}
+
+function generateMonthlyBarChartSVG(weekGroups) {
+  const height = 120;
+  const width = Math.max(520, weekGroups.length * 90);
+  const barWidth = 28;
+  const spacing = weekGroups.length > 1 ? (width - 80) / weekGroups.length : 0;
+
+  const columns = weekGroups.map((group, idx) => {
+    const barHeight = 20 + Math.round((group.completion / 100) * 70);
+    const x = 30 + idx * spacing;
+    return `
+      <g>
+        <rect x="${x}" y="${height - barHeight - 20}" width="${barWidth}" height="${barHeight}" rx="10" ry="10" fill="url(#greenGradient)" />
+        <text x="${x + barWidth / 2}" y="${height - 4}" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#8f8f8f">${group.label}</text>
+        <text x="${x + barWidth / 2}" y="${height - barHeight - 28}" text-anchor="middle" font-family="Inter, sans-serif" font-size="10" fill="#00ff88">${group.completion}%</text>
+      </g>
+    `;
+  }).join('');
+
+  return `
+    <svg width="100%" height="120" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" style="display:block;margin:auto;">
+      <defs>
+        <linearGradient id="greenGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#7effc3" />
+          <stop offset="100%" stop-color="#00b971" />
+        </linearGradient>
+        <pattern id="gridPattern" width="26" height="26" patternUnits="userSpaceOnUse">
+          <path d="M26 0 L0 0 0 26" fill="none" stroke="#111111" stroke-width="1" />
+        </pattern>
+      </defs>
+      <rect x="0" y="0" width="${width}" height="${height}" rx="20" ry="20" fill="#050505" />
+      <rect x="0" y="0" width="${width}" height="${height}" fill="url(#gridPattern)" opacity="0.18" />
+      ${columns}
+    </svg>
+  `;
+}
+
 async function callAI(userMsg) {
-  const localKey = localStorage.getItem('google_api_key');
+  const localKey = null;
   let serverHasKey = false;
   
   if (!localKey) {
@@ -3037,7 +3848,7 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
       }
       
       contents.push({
-        role: m.role === 'model' ? 'assistant' : m.role,
+        role: m.role === 'assistant' ? 'model' : m.role,
         parts: [{ text: messageText }]
       });
     });
@@ -3052,12 +3863,27 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
 
     let data;
     try {
-      data = await callGeminiWithProxyFallback(systemPrompt, contents, localKey, true);
+      typingEl.id = '';
+      typingEl.className = 'ai-msg assistant';
+
+      data = await callGeminiWithProxyFallback(systemPrompt, contents, localKey, true, (text) => {
+        let uiText = text;
+        uiText = uiText.replace(/\[(?:TASK_CREATE|FILE_GENERATE):\s*({[\s\S]*?})\s*\]/g, '').trim();
+        const openBracketMatch = uiText.match(/\[.*?\]?\s*$/);
+        if (openBracketMatch) {
+            uiText = uiText.substring(0, openBracketMatch.index).trim();
+        }
+        if (uiText) {
+          typingEl.innerHTML = `<div class="ai-msg-label">IA</div>${uiText.replace(/\n/g, '<br>')}`;
+          const msgs = document.getElementById('aiMessages');
+          msgs.scrollTop = msgs.scrollHeight;
+        }
+      });
     } catch (proxyError) {
       const errMsg = proxyError?.message || 'Erro desconhecido da API.';
       typingEl.remove();
       if (proxyError.status === 401 || proxyError.status === 403) {
-        addAIMessage('error', '🔑 Chave do Google inválida ou expirada. Clique em <strong>⚙ API</strong> e insira uma chave válida.');
+        addAIMessage('error', '🔑 Chave do Google inválida ou expirada. Verifique se a variável GEMINI_API_KEY está configurada na Vercel.');
         setStatus(false);
       } else if (proxyError.status === 429) {
         addAIMessage('error', '⏳ Muitas requisições ao servidor de IA. Aguarde alguns segundos e tente novamente.');
@@ -3071,7 +3897,6 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
     }
 
     const reply = data.text || 'Não consegui processar a resposta.';
-    typingEl.remove();
     
     // Processamento da tag de criação de tarefa ou geração de arquivo por IA
     const taskMatch = reply.match(/\[TASK_CREATE:\s*({[\s\S]*?})\s*\]/);
@@ -3081,24 +3906,29 @@ Aqui está o relatório mensal detalhado para Junho de 2026...`;
       try {
         const taskData = JSON.parse(taskMatch[1]);
         const cleanReply = reply.replace(/\[TASK_CREATE:\s*({[\s\S]*?})\s*\]/, '').trim();
-        addAIMessage('assistant', cleanReply, false, false);
+        typingEl.remove();
+        addAIMessage('assistant', cleanReply, false, false, null, false);
         await executeAITaskCreate(taskData);
       } catch (e) {
         console.error('Erro ao analisar JSON da tarefa da IA:', e);
-        addAIMessage('assistant', reply, false, false);
+        typingEl.remove();
+        addAIMessage('assistant', reply, false, false, null, false);
       }
     } else if (fileMatch) {
       try {
         const fileData = JSON.parse(fileMatch[1]);
         const cleanReply = reply.replace(/\[FILE_GENERATE:\s*({[\s\S]*?})\s*\]/, '').trim();
-        addAIMessage('assistant', cleanReply, false, false, fileData);
+        typingEl.remove();
+        addAIMessage('assistant', cleanReply, false, true, fileData, false);
       } catch (e) {
         console.error('Erro ao analisar JSON de geração de arquivo da IA:', e);
-        addAIMessage('assistant', reply, false, false);
+        typingEl.remove();
+        addAIMessage('assistant', reply, false, false, null, false);
       }
     } else {
+      typingEl.remove();
       const isReport = userMsg.toLowerCase().includes('relatorio') || userMsg.toLowerCase().includes('relatório');
-      addAIMessage('assistant', reply, false, isReport);
+      addAIMessage('assistant', reply, false, isReport, null, false);
     }
   } catch (e) {
     typingEl.remove();
@@ -3367,9 +4197,7 @@ document.getElementById('taskInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') addTask();
 });
 
-document.getElementById('apiModal').addEventListener('click', function(e) {
-  if (e.target === this && localStorage.getItem('google_api_key')) closeModal();
-});
+
 
 document.getElementById('logoutConfirmModal').addEventListener('click', function(e) {
   if (e.target === this) closeLogoutConfirmModal();
@@ -3384,7 +4212,8 @@ function startPreloader() {
   const statusEl  = document.getElementById('preloaderStatus');
 
   if (!preloader || !ringFill || !barFill || !pctEl || !statusEl) {
-    console.error('Preloader HTML elements not found.');
+    console.warn('Preloader elements not found, skipping animation.');
+    init();
     return;
   }
 
@@ -3396,43 +4225,71 @@ function startPreloader() {
     'Inicializando sistemas...',
     'Verificando autenticação...',
     'Conectando ao banco de dados...',
-    'Preparando painel de controle...',
+    'Sincronizando dados...',
     'Tudo pronto!',
   ];
 
   let progress = 0;
-  const interval      = 25;
   let tick = 0;
   let sessionChecked = false;
   let user = null;
+
+  // Failsafe absoluto: garante que o preloader suma em no máximo 10 segundos
+  const absoluteSafetyTimer = setTimeout(() => {
+    if (!preloader.classList.contains('fade-out')) {
+      console.warn('Preloader: Absolute Failsafe Triggered.');
+      preloader.classList.add('fade-out');
+      if (!_initialized) {
+        _initialized = true;
+        init();
+      }
+    }
+  }, 10000);
+
+  // Mostrar botão de pular após 6 segundos
+  setTimeout(() => {
+    const skipBtn = document.getElementById('skipPreloader');
+    if (skipBtn && !preloader.classList.contains('fade-out')) {
+      skipBtn.style.display = 'block';
+    }
+  }, 6000);
+
+  // Failsafe de verificação de sessão: se demorar mais de 6 segundos, libera o progresso
+  const safetyTimer = setTimeout(() => {
+    if (!sessionChecked) {
+      console.warn('Preloader: Session check timeout (Proceeding).');
+      sessionChecked = true;
+    }
+  }, 6000);
 
   // Realiza a verificação de sessão em paralelo
   checkSession().then(usr => {
     user = usr;
     sessionChecked = true;
+    clearTimeout(safetyTimer);
   }).catch(err => {
     console.error('Falha ao verificar sessão no carregamento:', err);
     sessionChecked = true;
+    clearTimeout(safetyTimer);
   });
 
   const timer = setInterval(() => {
     tick++;
     
     // O progresso avança normalmente até 90%. Só vai para 100% quando a sessão terminar de checar.
-    const totalDuration = user ? 2000 : 2500;
-    const ticks = totalDuration / interval;
-    const step = 100 / ticks;
+    let targetProgress = Math.min(90, tick); // Avança 1% por tick (35ms) até 90% (~3.1s)
     
-    let targetProgress = Math.min(100, Math.round(tick * step));
-    if (!sessionChecked && targetProgress > 90) {
-      targetProgress = 90;
+    if (sessionChecked) {
+      // Se a sessão já foi checada, permite que o progresso vá de 90 a 100 rapidamente
+      progress = Math.min(100, Math.max(progress, 90) + 2);
+    } else {
+      progress = targetProgress;
     }
-    progress = targetProgress;
 
     const offset = CIRCUMFERENCE - (progress / 100) * CIRCUMFERENCE;
     ringFill.style.strokeDashoffset = offset;
     barFill.style.width = progress + '%';
-    pctEl.textContent = progress + '%';
+    pctEl.textContent = Math.round(progress) + '%';
 
     const msgIdx = Math.min(
       Math.floor((progress / 100) * messages.length),
@@ -3442,40 +4299,55 @@ function startPreloader() {
 
     if (progress >= 100) {
       clearInterval(timer);
+      clearTimeout(absoluteSafetyTimer);
+
+      // Finalização
       setTimeout(async () => {
-        if (user && !_initialized) {
-          _initialized = true;
-          try {
-            await Promise.race([
+        try {
+          // Garante que o preloader suma logo, independente do carregamento de dados
+          preloader.classList.add('fade-out');
+
+          if (user && !_initialized) {
+            _initialized = true;
+            statusEl.textContent = 'Carregando perfil...';
+
+            // Tenta carregar dados básicos em background
+            Promise.race([
               Promise.all([
                 loadDestinationsFromSupabase(user.id),
                 loadTasksFromSupabase(user.id)
               ]),
-              new Promise((_, reject) => setTimeout(() => reject(new Error('Database Timeout')), 3000))
-            ]);
-          } catch (err) {
-            console.error('Erro ou timeout no preloader:', err);
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+            ]).then(() => {
+              updateDaysOfWeek();
+              renderCalendar();
+              renderSidebar();
+              if (activeDay === 'dashboard') renderDashboard();
+              else renderTasks();
+            }).catch(e => console.warn('Background data sync stalled:', e));
           }
-          
-          updateDaysOfWeek();
-          renderCalendar();
-          
-          preloader.classList.add('fade-out');
-          init();
-        } else {
-          preloader.classList.add('fade-out');
+        } catch (err) {
+          console.error('Preloader finalize error:', err);
+        } finally {
+          if (!_initialized) {
+            _initialized = true;
+            await init();
+          }
+          if (typeof loadNotificationPrefs === 'function' && currentUser) {
+            loadNotificationPrefs().catch(e => {});
+          }
           if (!user) {
-            initGoogleOneTap();
+            setTimeout(initGoogleOneTap, 500);
           }
         }
-      }, 250);
+      }, 300);
     }
-  }, interval);
+  }, 35);
 }
 
 if (document.readyState === 'loading') {
   window.addEventListener('DOMContentLoaded', startPreloader);
 } else {
-  startPreloader();
+  // Pequeno delay para garantir que o DOM esteja pronto para manipulação CSS se já carregado
+  setTimeout(startPreloader, 10);
 }
-
