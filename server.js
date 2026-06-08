@@ -102,7 +102,7 @@ app.post('/api/chat', async (req, res) => {
 
   const { systemPrompt, userMessage, contents } = req.body;
 
-  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
+  const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`;
 
   const normalizedContents = Array.isArray(contents) ? contents.map(message => ({
     ...message,
@@ -177,7 +177,7 @@ if (!isProd) {
   app.listen(PORT, () => {
     const keySource = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) ? '.env' : 'interface do usuário';
     console.log(`\n✅ TarefasIA rodando em http://localhost:${PORT}`);
-    console.log(`   Modelo: Google Gemini 1.5 Flash`);
+    console.log(`   Modelo: Google Gemini 2.0 Flash`);
     console.log(`   Chave de API: configurada via ${keySource}`);
     console.log(`   Pressione Ctrl+C para parar.\n`);
   });
