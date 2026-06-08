@@ -5961,55 +5961,71 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
     }
 
     function drawDayHeader(y0, day) {
-      const [dr, dg, db] = hexRGB(day.color);
-      fc(244, 244, 244); FR(MX, y0, CW, 9);
-      fc(dr, dg, db); FR(MX, y0, 3, 9);
-      sf(8, 'bold'); tc(30, 30, 30);
-      TX(day.name, MX + 6, y0 + 6.5);
-      sf(7); tc(110, 110, 110);
-      const dateInfo = `${day.dateLabel}${day.dest ? '  |  ' + day.dest : ''}`;
-      TX(dateInfo, MX + 6 + doc.getTextWidth(day.name + '  '), y0 + 6.5);
-      sf(6, 'bold'); tc(dr, dg, db);
-      TX(day.tipo, W - MX, y0 + 6, { align: 'right' });
-      return y0 + 11;
+      try {
+        const safeColor = (day && day.color && day.color.startsWith('#')) ? day.color : '#888888';
+        const [dr, dg, db] = hexRGB(safeColor);
+        fc(244, 244, 244); FR(MX, y0, CW, 9);
+        fc(dr, dg, db); FR(MX, y0, 3, 9);
+        sf(8, 'bold'); tc(30, 30, 30);
+        TX(String(day.name || ''), MX + 6, y0 + 6.5);
+        sf(7); tc(110, 110, 110);
+        const dateInfo = `${day.dateLabel || ''}${day.dest ? '  |  ' + day.dest : ''}`;
+        TX(dateInfo, MX + 6 + doc.getTextWidth(String(day.name || '') + '  '), y0 + 6.5);
+        sf(6, 'bold'); tc(dr, dg, db);
+        TX(String(day.tipo || ''), W - MX, y0 + 6, { align: 'right' });
+        return y0 + 11;
+      } catch(e) {
+        console.warn('[PDF drawDayHeader error]', e.message);
+        return y0 + 11;
+      }
     }
 
     function drawTask(y0, task) {
-      const maxW = CW - 16;
-      const mainLines = WRAP(task.text || '', maxW);
-      const visMain   = Math.min(mainLines.length, 2);
-      const detLines  = task.details ? WRAP(task.details, maxW - 4) : [];
-      const visDet    = Math.min(detLines.length, 1);
-      const rowH      = visMain * 4.5 + (visDet > 0 ? visDet * 4 + 1 : 0) + 5;
+      try {
+        const maxW = CW - 16;
+        const rawText = (task && task.text) ? String(task.text) : '(sem texto)';
+        const mainLines = WRAP(rawText, maxW);
+        const visMain   = Math.min(mainLines.length, 2);
+        const detLines  = (task && task.details) ? WRAP(String(task.details), maxW - 4) : [];
+        const visDet    = Math.min(detLines.length, 1);
+        const rowH      = Math.max(visMain * 4.5 + (visDet > 0 ? visDet * 4 + 1 : 0) + 5, 8);
 
-      // Círculo status
-      const [cr, cg, cb] = task.done ? [76, 175, 80] : [190, 190, 190];
-      dc(cr, cg, cb); doc.setLineWidth(0.5);
-      doc.circle(MX + 4, y0 + rowH / 2, 2.2, 'S');
-      if (task.done) {
-        sf(7, 'bold'); tc(cr, cg, cb);
-        TX('v', MX + 4, y0 + rowH / 2 + 1.5, { align: 'center' });
+        // Elipse (circulo) de status — usando ellipse para compatibilidade maxima
+        const isDone = task && task.done;
+        const cr = isDone ? 76  : 190;
+        const cg = isDone ? 175 : 190;
+        const cb = isDone ? 80  : 190;
+        dc(cr, cg, cb); doc.setLineWidth(0.5);
+        doc.ellipse(MX + 4, y0 + rowH / 2, 2.2, 2.2, 'S');
+        if (isDone) {
+          sf(7, 'bold'); tc(cr, cg, cb);
+          TX('v', MX + 4, y0 + rowH / 2 + 1.5, { align: 'center' });
+        }
+
+        // Texto principal
+        sf(8.5);
+        if (isDone) tc(150, 150, 150); else tc(25, 25, 25);
+        mainLines.slice(0, visMain).forEach((ln, i) => TX(ln, MX + 9, y0 + 5 + i * 4.5));
+
+        // Horário
+        if (task && task.time) {
+          sf(7, 'bold'); tc(140, 140, 140);
+          TX(String(task.time), W - MX, y0 + 5, { align: 'right' });
+        }
+
+        // Detalhes em verde
+        if (visDet > 0) {
+          sf(7); tc(80, 140, 20);
+          detLines.slice(0, visDet).forEach((dl, i) => TX(dl, MX + 11, y0 + 5 + visMain * 4.5 + 1 + i * 4));
+        }
+
+        // Separador
+        dc(230, 230, 230); LN(MX + 7, y0 + rowH, W - MX, y0 + rowH, 0.2);
+        return y0 + rowH + 0.5;
+      } catch(e) {
+        console.warn('[PDF drawTask error]', e.message, task);
+        return y0 + 9; // pular linha com erro silenciosamente
       }
-
-      // Texto principal
-      sf(8.5); tc(...(task.done ? [150,150,150] : [25,25,25]));
-      mainLines.slice(0, visMain).forEach((ln, i) => TX(ln, MX + 9, y0 + 5 + i * 4.5));
-
-      // Horário
-      if (task.time) {
-        sf(7, 'bold'); tc(140, 140, 140);
-        TX(task.time, W - MX, y0 + 5, { align: 'right' });
-      }
-
-      // Detalhes em verde-limão
-      if (visDet > 0) {
-        sf(7); tc(120, 160, 40);
-        detLines.slice(0, visDet).forEach((dl, i) => TX(dl, MX + 11, y0 + 5 + visMain * 4.5 + 1 + i * 4));
-      }
-
-      // Separador
-      dc(230, 230, 230); LN(MX + 7, y0 + rowH, W - MX, y0 + rowH, 0.2);
-      return y0 + rowH + 0.5;
     }
 
     // ─────────────────────────────────────────────────────────
