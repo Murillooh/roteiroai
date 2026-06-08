@@ -5121,11 +5121,7 @@ async function generateTaskDetailsWithIA() {
     }
   }
 
-  if (!serverHasKey && !localKey) {
-    alert('Por favor, configure sua chave do Google (Gemini) clicando em ⚙ API no topo da página.');
-    showModal();
-    return;
-  }
+
 
   const btnIA = document.getElementById('btnGenerateIA');
   const textarea = document.getElementById('detailTaskNotes');
@@ -6595,11 +6591,7 @@ async function exportDashboardPDF() {
     }
   }
 
-  if (!serverHasKey && !localKey) {
-    alert('Por favor, configure sua chave do Google (Gemini) clicando em ⚙ API no topo da página antes de exportar.');
-    showModal();
-    return;
-  }
+
 
   const loadingModal = document.getElementById('loadingModal');
   loadingModal.style.display = 'flex';
@@ -6956,11 +6948,7 @@ async function callAI(userMsg) {
     }
   }
 
-  if (!serverHasKey && !localKey) {
-    addAIMessage('error', 'Configure sua chave do Google (Gemini) clicando em <strong>⚙ API</strong> no topo da página.');
-    showModal();
-    return;
-  }
+
 
   const btn = document.getElementById('aiSendBtn');
   btn.disabled = true;
