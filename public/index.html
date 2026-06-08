@@ -5811,8 +5811,10 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
     // ── Coletar dados ─────────────────────────────────────────
     updateStatus('Coletando dados das tarefas...');
 
-    const allTasks = window.tasks || {};
-    const allDays  = window.DAYS  || [];
+    // IMPORTANTE: tasks e DAYS são let/const — NÃO ficam no window
+    // Usar as variáveis diretamente pelo escopo de closure
+    const allTasks = (typeof tasks !== 'undefined' ? tasks : {});
+    const allDays  = (typeof DAYS  !== 'undefined' ? DAYS  : []);
     let dayList = [];
 
     if (type === 'day' && dateParam) {
@@ -6019,14 +6021,22 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
 
     if (!hasTasks) {
       // ── Estado vazio: exibir logo centralizado ─────────────
-      const cy = H / 2;
-      sf(34, 'bold'); tc(210, 210, 210);
-      TX('TarefasIA', W / 2, cy - 8, { align: 'center' });
-      fc(169, 227, 75); FR(W / 2 - 22, cy - 2, 44, 1.5);
-      sf(10); tc(180, 180, 180);
-      TX('Nenhuma tarefa registrada no periodo.', W / 2, cy + 10, { align: 'center' });
-      sf(8); tc(200, 200, 200);
-      TX('Adicione tarefas no aplicativo para gerar relatorios completos.', W / 2, cy + 18, { align: 'center' });
+      const cy = H / 2 - 10;
+      // Caixa central com borda
+      fc(248, 248, 248); FR(MX + 20, cy - 20, CW - 40, 60);
+      dc(220, 220, 220); DR(MX + 20, cy - 20, CW - 40, 60);
+      // Barra lime no topo da caixa
+      fc(169, 227, 75); FR(MX + 20, cy - 20, CW - 40, 3);
+      // Logo text — DARK (visivel no fundo branco)
+      sf(28, 'bold'); tc(20, 20, 20);
+      TX('Tarefas', W / 2 - doc.getTextWidth('IA') - 2, cy, { align: 'right' });
+      tc(100, 180, 20);
+      TX('IA', W / 2 + doc.getTextWidth('Tarefas') / 2 - 8, cy);
+      // Mensagem
+      sf(10); tc(80, 80, 80);
+      TX('Nenhuma tarefa registrada no periodo.', W / 2, cy + 14, { align: 'center' });
+      sf(8); tc(130, 130, 130);
+      TX('Adicione tarefas no aplicativo para gerar relatorios completos.', W / 2, cy + 22, { align: 'center' });
 
     } else {
       // ── Stats ─────────────────────────────────────────────
@@ -6077,7 +6087,18 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
       if (loadingModal) loadingModal.style.display = 'none';
       await Share.share({ title: filename, url: written.uri, dialogTitle: 'Visualizar Relatorio' });
     } else {
-      doc.save(filename);
+      // Usar blob URL para download — mais confiavel que doc.save() em alguns navegadores
+      const pdfBlob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      console.log('[PDF] Download iniciado:', filename, 'tamanho:', pdfBlob.size, 'bytes');
     }
 
   } catch (err) {
