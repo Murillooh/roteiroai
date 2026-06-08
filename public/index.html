@@ -5928,27 +5928,33 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
     function drawAISection(y0) {
       if (!aiText || !aiText.trim()) return y0;
       const cleaned = aiText.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-      const lines   = WRAP(cleaned, CW - 10);
-      const visL    = Math.min(lines.length, 20);
-      const boxH    = visL * 4.2 + 15;
 
-      // Box
+      // IMPORTANTE: definir fonte ANTES de WRAP — splitTextToSize usa as metricas da fonte atual
+      const textFontSize = 8;
+      const lineH = 5;           // espacamento entre linhas (mm)
+      const textMaxW = CW - 14; // largura do texto dentro da caixa (com padding dos dois lados)
+      sf(textFontSize); // <-- fonte definida ANTES do splitTextToSize
+      const lines = WRAP(cleaned, textMaxW);
+      const visL  = Math.min(lines.length, 18);
+      const boxH  = visL * lineH + 18; // 12 header + 6 padding bottom
+
+      // Caixa
       fc(250, 248, 255); FR(MX, y0, CW, boxH);
       dc(210, 195, 255); DR(MX, y0, CW, boxH);
       // Barra roxa esquerda
       fc(130, 80, 255); FR(MX, y0, 3, boxH);
 
-      // Label
+      // Label (fonte diferente da do texto — nao interfere pq WRAP ja foi chamado)
       sf(7, 'bold'); tc(130, 80, 255);
       TX('ANALISE INTELIGENTE  (IA GEMINI)', MX + 6, y0 + 6);
       // Linha separadora
-      dc(210, 195, 255); LN(MX + 6, y0 + 8, MX + CW - 3, y0 + 8);
+      dc(210, 195, 255); LN(MX + 6, y0 + 9, MX + CW - 4, y0 + 9);
 
-      // Texto
-      sf(8); tc(50, 50, 50);
-      lines.slice(0, visL).forEach((ln, i) => TX(ln, MX + 6, y0 + 13 + i * 4.2));
+      // Texto de conteudo
+      sf(textFontSize); tc(50, 50, 50);
+      lines.slice(0, visL).forEach((ln, i) => TX(ln, MX + 6, y0 + 14 + i * lineH));
 
-      return y0 + boxH + 5;
+      return y0 + boxH + 4;
     }
 
     function drawSectionLabel(y0, label) {
@@ -5964,34 +5970,55 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
       try {
         const safeColor = (day && day.color && day.color.startsWith('#')) ? day.color : '#888888';
         const [dr, dg, db] = hexRGB(safeColor);
-        fc(244, 244, 244); FR(MX, y0, CW, 9);
-        fc(dr, dg, db); FR(MX, y0, 3, 9);
+        fc(244, 244, 244); FR(MX, y0, CW, 10);
+        fc(dr, dg, db); FR(MX, y0, 3, 10);
+
+        // Nome do dia
         sf(8, 'bold'); tc(30, 30, 30);
-        TX(String(day.name || ''), MX + 6, y0 + 6.5);
+        const nameStr = String(day.name || '').slice(0, 20);
+        TX(nameStr, MX + 6, y0 + 7);
+        const nameW = doc.getTextWidth(nameStr + ' ');
+
+        // Tipo badge (direita) — reservar espaco antes de calcular dateInfo
+        sf(6, 'bold'); tc(dr, dg, db);
+        const tipoStr = String(day.tipo || '');
+        const tipoW = doc.getTextWidth(tipoStr) + 2;
+        TX(tipoStr, W - MX, y0 + 7, { align: 'right' });
+
+        // Date info — espaco disponivel entre nome e tipo
         sf(7); tc(110, 110, 110);
         const dateInfo = `${day.dateLabel || ''}${day.dest ? '  |  ' + day.dest : ''}`;
-        TX(dateInfo, MX + 6 + doc.getTextWidth(String(day.name || '') + '  '), y0 + 6.5);
-        sf(6, 'bold'); tc(dr, dg, db);
-        TX(String(day.tipo || ''), W - MX, y0 + 6, { align: 'right' });
-        return y0 + 11;
+        const maxInfoW = CW - nameW - tipoW - 10; // espaco disponivel
+        const clippedInfo = WRAP(dateInfo, maxInfoW)[0] || ''; // apenas a primeira linha
+        TX(clippedInfo, MX + 6 + nameW, y0 + 7);
+
+        return y0 + 12;
       } catch(e) {
         console.warn('[PDF drawDayHeader error]', e.message);
-        return y0 + 11;
+        return y0 + 12;
       }
     }
 
     function drawTask(y0, task) {
       try {
-        const maxW = CW - 16;
+        // IMPORTANTE: definir fonte ANTES de WRAP para metricas corretas
+        const isDone = task && task.done;
+
+        sf(8.5); // fonte do texto principal — ANTES do splitTextToSize
+        const timeReserve = (task && task.time) ? 14 : 0; // espaco reservado para horario
+        const maxW = CW - 16 - timeReserve;
         const rawText = (task && task.text) ? String(task.text) : '(sem texto)';
         const mainLines = WRAP(rawText, maxW);
         const visMain   = Math.min(mainLines.length, 2);
-        const detLines  = (task && task.details) ? WRAP(String(task.details), maxW - 4) : [];
-        const visDet    = Math.min(detLines.length, 1);
-        const rowH      = Math.max(visMain * 4.5 + (visDet > 0 ? visDet * 4 + 1 : 0) + 5, 8);
 
-        // Elipse (circulo) de status — usando ellipse para compatibilidade maxima
-        const isDone = task && task.done;
+        sf(7); // fonte dos detalhes — ANTES de WRAP dos detalhes
+        const detLines = (task && task.details) ? WRAP(String(task.details), maxW) : [];
+        const visDet   = Math.min(detLines.length, 1);
+
+        const lineH = 5;
+        const rowH  = Math.max(visMain * lineH + (visDet > 0 ? visDet * 4 + 2 : 0) + 4, 9);
+
+        // Elipse de status
         const cr = isDone ? 76  : 190;
         const cg = isDone ? 175 : 190;
         const cb = isDone ? 80  : 190;
@@ -6005,18 +6032,18 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
         // Texto principal
         sf(8.5);
         if (isDone) tc(150, 150, 150); else tc(25, 25, 25);
-        mainLines.slice(0, visMain).forEach((ln, i) => TX(ln, MX + 9, y0 + 5 + i * 4.5));
+        mainLines.slice(0, visMain).forEach((ln, i) => TX(ln, MX + 9, y0 + 5.5 + i * lineH));
 
-        // Horário
+        // Horario
         if (task && task.time) {
           sf(7, 'bold'); tc(140, 140, 140);
-          TX(String(task.time), W - MX, y0 + 5, { align: 'right' });
+          TX(String(task.time), W - MX, y0 + 5.5, { align: 'right' });
         }
 
-        // Detalhes em verde
+        // Detalhes
         if (visDet > 0) {
           sf(7); tc(80, 140, 20);
-          detLines.slice(0, visDet).forEach((dl, i) => TX(dl, MX + 11, y0 + 5 + visMain * 4.5 + 1 + i * 4));
+          detLines.slice(0, visDet).forEach((dl, i) => TX(dl, MX + 11, y0 + 5.5 + visMain * lineH + 1 + i * 4));
         }
 
         // Separador
