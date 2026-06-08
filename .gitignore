@@ -1,5 +1,6 @@
 # Ambiente
 .env
+.env.*
 
 # Dependências
 node_modules/
@@ -12,3 +13,14 @@ ios/
 dist/
 .DS_Store
 *.log
+
+# Arquivos temporários de debug
+tmp_*.js
+fix_*.js
+fix.js
+update_*.js
+check_*.js
+extract_*.js
+replace_*.js
+scratch/
+public/test_*.html
