@@ -5953,7 +5953,7 @@ async function generatePDFReport({ type = 'general', dateParam = null, title = '
 
       // Texto de conteudo
       sf(textFontSize); tc(50, 50, 50);
-      lines.slice(0, visL).forEach((ln, i) => TX(ln, MX + 6, y0 + 14 + i * lineH));
+      lines.slice(0, visL).forEach((ln, i) => TX(ln.trim(), MX + 6, y0 + 14 + i * lineH));
 
       return y0 + boxH + 4;
     }
